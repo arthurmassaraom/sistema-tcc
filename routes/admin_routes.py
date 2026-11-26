@@ -10,6 +10,7 @@ from models.usuario import Usuario
 from models.livro import Livro
 from models.doacao import Doacao
 from models.biblioteca import Biblioteca
+from services.email import enviar_email
 from models.transacao import Transacao
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -421,6 +422,30 @@ def curadoria():
     )
 
 
+def _avisar_doador(doacao, aprovada):
+    """Envia por e-mail o resultado da análise da doação ao doador."""
+    doador = db.session.get(Usuario, doacao.usuario_id)
+    if not doador or not doador.email:
+        return
+    if aprovada:
+        assunto = f"Sua doação “{doacao.titulo}” foi aprovada"
+        texto = (
+            f"Olá, {doador.nome}!\n\n"
+            f"Obrigado por doar “{doacao.titulo}” à Biblioteca Aberta. "
+            "A obra foi aprovada e já faz parte do acervo comunitário.\n\n"
+            "Obrigado por contribuir!\n"
+        )
+    else:
+        assunto = f"Sua doação “{doacao.titulo}” não foi aceita"
+        texto = (
+            f"Olá, {doador.nome}!\n\n"
+            f"Infelizmente não foi possível aceitar a doação de “{doacao.titulo}”.\n\n"
+            f"Motivo: {doacao.justificativa}\n\n"
+            "Você pode enviar outra obra quando quiser.\n"
+        )
+    enviar_email(doador.email, assunto, texto)
+
+
 @admin_bp.post("/curadoria/<int:doacao_id>/aprovar")
 @admin_required
 def aprovar(doacao_id):
@@ -454,6 +479,8 @@ def aprovar(doacao_id):
             "Não foi possível aprovar. Verifique se o ISBN já existe no acervo.",
             "erro",
         )
+    else:
+        _avisar_doador(doacao, aprovada=True)
     return redirect(url_for("admin.curadoria"))
 
 
@@ -470,4 +497,5 @@ def recusar(doacao_id):
         doacao.status = "Recusada"
         doacao.justificativa = justificativa
         db.session.commit()
+        _avisar_doador(doacao, aprovada=False)
     return redirect(url_for("admin.curadoria"))

@@ -107,6 +107,12 @@ class Config:
     BUSINESS_PHONE = os.environ.get("BUSINESS_PHONE", "").strip()
     BUSINESS_WHATSAPP = "".join(filter(str.isdigit, os.environ.get("BUSINESS_WHATSAPP", "")))
     BUSINESS_EMAIL = os.environ.get("BUSINESS_EMAIL", "").strip()
+    # E-mails transacionais (SMTP). Gmail: smtp.gmail.com, porta 587, senha de app.
+    SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com").strip()
+    SMTP_PORT = os.environ.get("SMTP_PORT", "587").strip()
+    SMTP_USER = os.environ.get("SMTP_USER", "").strip()
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").replace(" ", "").strip()
+    SMTP_FROM = os.environ.get("SMTP_FROM", "").strip()
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
     GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
     GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "").strip()
