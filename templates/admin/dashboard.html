@@ -1,0 +1,106 @@
+{% extends 'admin_base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Visão geral{% endblock %}
+{% block content %}
+<header class="admin-title">
+  <div>
+    <p class="eyebrow">Resumo operacional</p>
+    <h1>Painel da biblioteca</h1>
+  </div>
+  <span class="badge badge-primary">{{ icon('lock') }}Acesso restrito</span>
+</header>
+
+<div class="metric-grid">
+  {% for rotulo, valor, ic, tom in [
+    ('Faturamento aprovado', faturamento|brl, 'chart-column', 'primary'),
+    ('Vendas pagas', vendas, 'receipt', ''),
+    ('Aluguéis ativos pagos', alugueis, 'book-open', ''),
+    ('Multas estimadas', multas|brl, 'scale', 'warning' if multas else ''),
+    ('Livros ativos no acervo', total_livros, 'library', ''),
+    ('Exemplares em estoque', unidades, 'layers', ''),
+    ('Clientes cadastrados', clientes, 'users', ''),
+    ('Doações aguardando', pendentes, 'gift', 'accent' if pendentes else ''),
+  ] %}
+  <article class="metric-card{% if tom %} is-{{ tom }}{% endif %}">
+    <span class="metric-icon">{{ icon(ic) }}</span>
+    <span class="metric-label">{{ rotulo }}</span>
+    <strong>{{ valor }}</strong>
+  </article>
+  {% endfor %}
+</div>
+
+<div class="chart-grid">
+  <section class="panel" aria-labelledby="grafico-pedidos">
+    <h2 id="grafico-pedidos">Pedidos nos últimos 14 dias</h2>
+    {%- set maximo = (serie|map(attribute=1)|max) or 1 -%}
+    {% if serie|map(attribute=1)|sum %}
+    <svg class="spark-chart" viewBox="0 0 {{ serie|length * 24 }} 120" role="img" aria-label="Gráfico de barras com pedidos por dia">
+      {% for dia, n in serie %}
+      {%- set h = (n / maximo * 96)|round(1) -%}
+      <g><title>{{ dia|data_br }}: {{ n }} pedido(s)</title>
+        <rect x="{{ loop.index0 * 24 + 4 }}" y="{{ 104 - h }}" width="16" height="{{ [h, 2]|max }}" rx="3"></rect>
+        {% if loop.index0 % 2 == 0 %}<text x="{{ loop.index0 * 24 + 12 }}" y="118">{{ dia.strftime('%d') }}</text>{% endif %}
+      </g>
+      {% endfor %}
+    </svg>
+    {% else %}
+    {% call ui.empty_state('chart-column', 'Sem pedidos nas últimas duas semanas', 'O gráfico aparece assim que os primeiros pedidos forem registrados.', 'h3', compacto=True) %}{% endcall %}
+    {% endif %}
+  </section>
+
+  <section class="panel" aria-labelledby="grafico-status">
+    <h2 id="grafico-status">Pedidos por situação</h2>
+    {%- set total_status = por_status.values()|sum -%}
+    {% if total_status %}
+    <ul class="bar-list">
+      {% for chave in ['aguardando_pagamento', 'ativa', 'concluida', 'devolvida', 'cancelada'] %}
+      {%- set n = por_status.get(chave, 0) -%}
+      {%- set info = status_pedido(chave) -%}
+      <li><span>{{ info[0] }}</span><span class="bar tone-{{ info[1] or 'neutral' }}"><span style="width: {{ (100 * n / total_status)|round(1) }}%"></span></span><strong>{{ n }}</strong></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    {% call ui.empty_state('receipt', 'Nenhum pedido ainda', 'Quando houver pedidos, a distribuição por situação aparece aqui.', 'h3', compacto=True) %}{% endcall %}
+    {% endif %}
+  </section>
+
+  <section class="panel" aria-labelledby="grafico-generos">
+    <h2 id="grafico-generos">Estoque por gênero</h2>
+    {%- set max_genero = (por_genero|map(attribute=1)|max) if por_genero else 0 -%}
+    {% if max_genero %}
+    <ul class="bar-list">
+      {% for genero, n in por_genero %}<li><span>{{ genero }}</span><span class="bar"><span style="width: {{ (100 * n / max_genero)|round(1) }}%"></span></span><strong>{{ n }}</strong></li>{% endfor %}
+    </ul>
+    {% else %}
+    {% call ui.empty_state('layers', 'Sem exemplares em estoque', 'Cadastre livros ou atualize o estoque para acompanhar a distribuição.', 'h3', compacto=True) %}
+      <a class="button button-small" href="{{ url_for('admin.novo_livro') }}">Cadastrar livro</a>
+    {% endcall %}
+    {% endif %}
+    {% if sem_estoque %}<p class="alert alert-warning">{{ icon('triangle-alert') }}<span>{{ sem_estoque }} {{ 'título ativo está' if sem_estoque == 1 else 'títulos ativos estão' }} sem estoque. <a href="{{ url_for('admin.livros', situacao='sem_estoque') }}">Ver lista</a></span></p>{% endif %}
+  </section>
+
+  <section class="panel" aria-labelledby="recentes-titulo">
+    <h2 id="recentes-titulo">Pedidos recentes</h2>
+    {% if recentes %}
+    <ul class="recent-list">
+      {% for tx in recentes %}
+      <li><span><strong>{{ tx.livro.titulo }}</strong><small>{{ tx.nome_completo or 'Cliente' }} · {{ tx.data_transacao|data_br }}</small></span>{{ ui.status_badge(tx.status) }}</li>
+      {% endfor %}
+    </ul>
+    <a class="text-link" href="{{ url_for('admin.transacoes') }}">Ver todos os pedidos{{ icon('arrow-right', 'icon-sm') }}</a>
+    {% else %}
+    {% call ui.empty_state('inbox', 'Nada por aqui ainda', 'Os pedidos mais recentes aparecerão nesta lista.', 'h3', compacto=True) %}{% endcall %}
+    {% endif %}
+  </section>
+</div>
+
+<section class="panel admin-section">
+  <h2>Atalhos de gestão</h2>
+  <div class="admin-actions">
+    <a class="button" href="{{ url_for('admin.novo_livro') }}">{{ icon('plus', 'icon-sm') }}Cadastrar livro</a>
+    <a class="button button-light" href="{{ url_for('admin.transacoes') }}">Ver pedidos e transações</a>
+    <a class="button button-light" href="{{ url_for('admin.curadoria') }}">Abrir curadoria{% if pendentes %} <span class="badge badge-accent">{{ pendentes }}</span>{% endif %}</a>
+    <a class="button button-light" href="{{ url_for('admin.bibliotecas') }}">Gerenciar unidades</a>
+  </div>
+</section>
+{% endblock %}

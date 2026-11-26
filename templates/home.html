@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Início{% endblock %}
+{% block page_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/home.css') }}">{% endblock %}
+{% block content %}
+
+<section class="hero" aria-labelledby="hero-titulo">
+  <div class="hero-copy">
+    <p class="eyebrow">{{ icon('leaf', 'icon-sm') }}Biblioteca comunitária</p>
+    <h1 id="hero-titulo">Histórias que passam <em>de mão em mão.</em></h1>
+    <p class="hero-lead">Alugue por 7, 14 ou 30 dias, compre para guardar ou doe para circular. Retire de graça em uma biblioteca parceira ou receba em casa.</p>
+    <form class="hero-search" role="search" action="{{ url_for('livros.catalogo') }}" method="get">
+      <label class="sr-only" for="hero-busca">Buscar no acervo</label>
+      {{ icon('search') }}
+      <input id="hero-busca" name="q" type="search" placeholder="Que história você procura hoje?" enterkeyhint="search">
+      <button class="button button-accent" type="submit">Buscar</button>
+    </form>
+    <dl class="hero-stats">
+      <div><dt>Títulos no acervo</dt><dd>{{ totais.titulos }}</dd></div>
+      <div><dt>Exemplares disponíveis</dt><dd>{{ totais.exemplares }}</dd></div>
+      <div><dt>Bibliotecas parceiras</dt><dd>{{ totais.bibliotecas if totais.bibliotecas else 'Em breve' }}</dd></div>
+    </dl>
+  </div>
+
+  {% if hero %}
+  <article class="hero-feature" aria-label="Destaque do acervo">
+    <a class="hero-feature-cover" href="{{ url_for('livros.detalhes', livro_id=hero.id) }}" tabindex="-1" aria-hidden="true">{{ ui.cover(hero, 'book-cover', lazy=False) }}</a>
+    <div class="hero-feature-card">
+      <p class="eyebrow">{{ icon('star', 'icon-sm') }}Destaque do acervo</p>
+      <h2><a href="{{ url_for('livros.detalhes', livro_id=hero.id) }}">{{ hero.titulo }}</a></h2>
+      <p class="muted">{{ hero.autor }}{% if hero.ano %} · {{ hero.ano }}{% endif %}</p>
+      {{ ui.rating(hero) }}
+      {% if atividade %}<p class="hero-activity">{{ icon('users', 'icon-sm') }}{{ atividade }} {{ 'pedido pago' if atividade == 1 else 'pedidos pagos' }}</p>{% endif %}
+      {{ ui.add_form(hero, compacto=True) }}
+    </div>
+  </article>
+  {% else %}
+  <div class="hero-feature is-empty">
+    {% call ui.empty_state('book-open', 'O acervo está sendo organizado', 'Assim que a curadoria publicar os primeiros títulos, o destaque da semana aparece aqui.', 'h2', compacto=True) %}
+      <a class="button" href="{{ url_for('doacoes.doe') }}">{{ icon('gift') }}Doar um livro</a>
+    {% endcall %}
+  </div>
+  {% endif %}
+</section>
+
+{% if categorias %}
+<section class="section-block" aria-labelledby="categorias-titulo">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Explore por gênero</p>
+      <h2 id="categorias-titulo">Estantes do acervo</h2>
+    </div>
+    <a class="text-link" href="{{ url_for('livros.catalogo') }}">Ver todos os gêneros{{ icon('arrow-right', 'icon-sm') }}</a>
+  </div>
+  <ul class="category-grid">
+    {% for cat in categorias %}
+    <li>
+      <a class="category-card tone-{{ loop.index0 % 6 }}" href="{{ url_for('livros.catalogo', genero=cat.nome) }}">
+        <span class="category-text">
+          <strong>{{ cat.nome }}</strong>
+          <small>{{ cat.total }} {{ 'título' if cat.total == 1 else 'títulos' }}</small>
+        </span>
+        {% if cat.capa %}<span class="category-cover">{{ ui.cover(cat.capa, 'book-cover') }}</span>{% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="section-block" aria-labelledby="destaques-titulo">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Escolhas da comunidade</p>
+      <h2 id="destaques-titulo">Leituras em destaque</h2>
+    </div>
+    <a class="text-link" href="{{ url_for('livros.catalogo') }}">Explorar todo o acervo{{ icon('arrow-right', 'icon-sm') }}</a>
+  </div>
+  {% if destaques %}
+  <div class="book-grid">{% for livro in destaques %}{{ ui.book_card(livro) }}{% endfor %}</div>
+  {% else %}
+  {% call ui.empty_state('book-open', 'Os destaques aparecem com os primeiros pedidos', 'Enquanto isso, o acervo completo está a um clique.', 'h3', compacto=True) %}
+    <a class="button" href="{{ url_for('livros.catalogo') }}">Ver o acervo</a>
+  {% endcall %}
+  {% endif %}
+</section>
+
+<section class="how-it-works" aria-labelledby="como-titulo">
+  <div class="how-intro">
+    <p class="eyebrow">Como funciona</p>
+    <h2 id="como-titulo">Do acervo para as suas mãos em quatro passos</h2>
+    <p>Sem burocracia: você escolhe, decide como receber e acompanha tudo pelo perfil.</p>
+  </div>
+  <ol class="how-steps">
+    <li>{{ icon('search', 'icon-lg') }}<h3>Escolha</h3><p>Busque por título, autor ou ISBN e veja disponibilidade em tempo real.</p></li>
+    <li>{{ icon('book-open', 'icon-lg') }}<h3>Alugue ou compre</h3><p>Aluguel de 7, 14 ou 30 dias, ou compra para ficar na sua estante.</p></li>
+    <li>{{ icon('truck', 'icon-lg') }}<h3>Receba ou retire</h3><p>Entrega por {{ config['DELIVERY_FEE']|brl }} ou retirada gratuita numa biblioteca parceira.</p></li>
+    <li>{{ icon('rotate-ccw', 'icon-lg') }}<h3>Devolva e avalie</h3><p>Acompanhe prazos no perfil, renove quando houver estoque e conte o que achou.</p></li>
+  </ol>
+</section>
+
+{% if novidades %}
+<section class="section-block" aria-labelledby="novidades-titulo">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Recém-chegados</p>
+      <h2 id="novidades-titulo">Novidades na estante</h2>
+    </div>
+  </div>
+  <div class="book-grid">{% for livro in novidades %}{{ ui.book_card(livro) }}{% endfor %}</div>
+</section>
+{% endif %}
+
+<section class="cta-pair" aria-label="Planos e doações">
+  <article class="cta-card cta-plans">
+    <p class="eyebrow">{{ icon('sparkles', 'icon-sm') }}Planos de leitura</p>
+    <h2>Leia mais, no seu ritmo</h2>
+    <p>{% if planos %}A partir de {{ 'grátis' if planos[0].preco_mensal == 0 else planos[0].preco_mensal|brl }}, com até {{ planos|map(attribute='limite_alugueis')|max }} aluguéis simultâneos no plano mais completo.{% else %}Conheça as opções de assinatura para alugar mais livros ao mesmo tempo.{% endif %}</p>
+    <a class="button button-accent" href="{{ url_for('main.planos') }}">Comparar planos{{ icon('arrow-right') }}</a>
+  </article>
+  <article class="cta-card cta-donate">
+    <p class="eyebrow">{{ icon('hand-heart', 'icon-sm') }}Doações</p>
+    <h2>Seu livro parado pode ser a próxima leitura de alguém</h2>
+    <p>Envie os dados da obra, a curadoria avalia e você acompanha o status pelo site.</p>
+    <div class="button-row">
+      <a class="button" href="{{ url_for('doacoes.doe') }}">{{ icon('gift') }}Doar um livro</a>
+      <a class="button button-light" href="{{ url_for('doacoes.transparencia') }}">Ver transparência</a>
+    </div>
+  </article>
+</section>
+
+<section class="testimonials" aria-labelledby="depoimentos-titulo">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Na voz de quem lê</p>
+      <h2 id="depoimentos-titulo">O que a comunidade valoriza</h2>
+    </div>
+    <span class="badge badge-demo">{{ icon('info') }}Depoimentos de demonstração</span>
+  </div>
+  <div class="testimonial-grid">
+    <figure class="testimonial">
+      {{ icon('quote', 'icon-lg') }}
+      <blockquote>“Retirar o livro na biblioteca do bairro virou parte do meu fim de semana.”</blockquote>
+      <figcaption>Exemplo ilustrativo · leitora</figcaption>
+    </figure>
+    <figure class="testimonial">
+      {{ icon('quote', 'icon-lg') }}
+      <blockquote>“O aviso de prazo de devolução me salvou de esquecer o aluguel.”</blockquote>
+      <figcaption>Exemplo ilustrativo · estudante</figcaption>
+    </figure>
+    <figure class="testimonial">
+      {{ icon('quote', 'icon-lg') }}
+      <blockquote>“Doei a coleção dos meus filhos e acompanhei cada título sendo aprovado.”</blockquote>
+      <figcaption>Exemplo ilustrativo · doador</figcaption>
+    </figure>
+  </div>
+  <p class="hint">Textos fictícios usados apenas para demonstrar o layout. As avaliações reais dos livros aparecem nas páginas de cada obra.</p>
+</section>
+
+{% if alugados %}
+<section class="section-block" aria-labelledby="mais-titulo">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Mais leituras</p>
+      <h2 id="mais-titulo">Para a sua próxima página</h2>
+    </div>
+  </div>
+  <div class="book-grid">{% for livro in alugados %}{{ ui.book_card(livro) }}{% endfor %}</div>
+</section>
+{% endif %}
+{% endblock %}

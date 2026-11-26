@@ -1,0 +1,65 @@
+{% extends 'admin_base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Curadoria{% endblock %}
+{% block content %}
+<header class="admin-title">
+  <div>
+    <p class="eyebrow">Acervo comunitário</p>
+    <h1>Curadoria de doações</h1>
+    <p class="muted">Somente as obras aprovadas são publicadas no catálogo.</p>
+  </div>
+  <a class="button button-light" href="{{ url_for('doacoes.transparencia') }}" target="_blank" rel="noopener">{{ icon('external-link', 'icon-sm') }}Página de transparência</a>
+</header>
+
+<nav class="segment-nav" aria-label="Filtrar doações por situação">
+  {% for chave, rotulo in [('Aguardando Análise', 'Aguardando'), ('Aprovada', 'Aprovadas'), ('Recusada', 'Recusadas'), ('todas', 'Todas')] %}
+  <a href="{{ url_for('admin.curadoria', status=chave) }}"{% if filtro == chave %} aria-current="page"{% endif %}>{{ rotulo }} <span class="badge">{{ contagem.values()|sum if chave == 'todas' else contagem.get(chave, 0) }}</span></a>
+  {% endfor %}
+</nav>
+
+<div class="donation-queue">
+{% for d in doacoes %}
+<article class="panel donation-card">
+  <header>
+    <div>
+      <p class="eyebrow">Submissão #{{ d.id }} · {{ d.criada_em|data_br }}</p>
+      <h2>{{ d.titulo }}</h2>
+    </div>
+    <span class="badge {{ {'Aprovada': 'badge-success', 'Recusada': 'badge-danger'}.get(d.status, 'badge-warning') }}">{{ d.status }}</span>
+  </header>
+  <dl class="donation-facts">
+    <div><dt>Autor</dt><dd>{{ d.autor }}</dd></div>
+    <div><dt>Editora</dt><dd>{{ d.editora or '—' }}</dd></div>
+    <div><dt>Ano</dt><dd>{{ d.ano or '—' }}</dd></div>
+    <div><dt>ISBN</dt><dd>{{ d.isbn or '—' }}</dd></div>
+    <div><dt>Conservação</dt><dd>{{ d.conservacao }}</dd></div>
+    <div><dt>Entrega em</dt><dd>{{ d.biblioteca_entrega }}</dd></div>
+    <div><dt>Doado por</dt><dd>{{ d.usuario.nome }}</dd></div>
+  </dl>
+  {% if d.justificativa %}<p class="hint">Justificativa: {{ d.justificativa }}</p>{% endif %}
+  {% if d.status=='Aguardando Análise' %}
+  <div class="admin-actions">
+    <form method="post" action="{{ url_for('admin.aprovar',doacao_id=d.id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <button class="button" type="submit">{{ icon('check', 'icon-sm') }}Aprovar e publicar</button>
+    </form>
+    <form method="post" action="{{ url_for('admin.recusar',doacao_id=d.id) }}" class="admin-form-inline" novalidate data-validate>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <label class="sr-only" for="justificativa-{{ d.id }}">Justificativa da recusa</label>
+      <input id="justificativa-{{ d.id }}" name="justificativa" placeholder="Justificativa da recusa" required maxlength="400">
+      <button class="button button-danger" type="submit">Recusar</button>
+    </form>
+  </div>
+  {% endif %}
+</article>
+{% else %}
+{% if filtro == 'Aguardando Análise' %}
+{% call ui.empty_state('circle-check', 'Fila em dia!', 'Nenhuma doação aguardando análise. Novas submissões aparecem aqui automaticamente.') %}
+  <a class="button button-light" href="{{ url_for('admin.curadoria', status='todas') }}">Ver histórico</a>
+{% endcall %}
+{% else %}
+{% call ui.empty_state('inbox', 'Nenhuma doação nesta situação', 'Escolha outro filtro para ver as demais submissões.') %}{% endcall %}
+{% endif %}
+{% endfor %}
+</div>
+{% endblock %}

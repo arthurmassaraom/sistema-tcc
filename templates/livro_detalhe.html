@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}{{ livro.titulo }}{% endblock %}
+{% block description %}{{ livro.titulo }}, de {{ livro.autor }}. {{ livro.resumo[:140] }}{% endblock %}
+{% block page_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/livros.css') }}">{% endblock %}
+{% block content %}
+{%- set aluga = livro.modalidade in ['Aluguel','Ambos'] -%}
+{%- set vende = livro.modalidade in ['Venda','Ambos'] -%}
+<nav class="breadcrumbs" aria-label="Você está em">
+  <ol>
+    <li><a href="{{ url_for('main.home') }}">Início</a></li>
+    <li><a href="{{ url_for('livros.catalogo') }}">Acervo</a></li>
+    <li><a href="{{ url_for('livros.catalogo', genero=livro.genero) }}">{{ livro.genero }}</a></li>
+    <li aria-current="page">{{ livro.titulo }}</li>
+  </ol>
+</nav>
+
+<article class="book-detail" itemscope itemtype="https://schema.org/Book">
+  <div class="book-detail-cover">
+    {{ ui.cover(livro, 'book-cover', lazy=False) }}
+    {% if usuario_atual %}
+    <form method="post" action="{{ url_for('livros.favoritar', livro_id=livro.id) }}" class="favorite-form" data-favorite>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <button class="favorite-button{% if favorito %} is-active{% endif %}" type="submit" aria-pressed="{{ 'true' if favorito else 'false' }}">
+        {{ icon('heart') }}<span data-favorite-label>{{ 'Nos seus favoritos' if favorito else 'Salvar nos favoritos' }}</span>
+      </button>
+    </form>
+    {% else %}
+    <a class="favorite-button" href="{{ url_for('usuarios.login', next=request.path) }}">{{ icon('heart') }}<span>Entre para favoritar</span></a>
+    {% endif %}
+  </div>
+
+  <div class="book-detail-main">
+    <p class="eyebrow">{{ livro.genero }} · {{ livro.categoria }}</p>
+    <h1 itemprop="name">{{ livro.titulo }}</h1>
+    <p class="book-detail-author">por <span itemprop="author">{{ livro.autor }}</span>{% if livro.ano %} · {{ livro.ano }}{% endif %}</p>
+
+    <div class="book-detail-rating">
+      {% if livro.total_avaliacoes %}
+      <span itemprop="aggregateRating" itemscope itemtype="https://schema.org/AggregateRating">
+        <meta itemprop="ratingValue" content="{{ '%.2f'|format(livro.media_avaliacao) }}">
+        <meta itemprop="reviewCount" content="{{ livro.total_avaliacoes }}">
+      </span>
+      {{ ui.stars(livro.media_avaliacao) }}
+      <strong>{{ ('%.1f'|format(livro.media_avaliacao)).replace('.', ',') }}</strong>
+      <a href="#avaliacoes">{{ livro.total_avaliacoes }} {{ 'avaliação' if livro.total_avaliacoes == 1 else 'avaliações' }}</a>
+      {% else %}
+      <span class="rating-empty">{{ icon('star', 'icon-sm') }}Ainda sem avaliações</span>
+      {% endif %}
+      {% if livro.estoque > 2 %}<span class="badge badge-success">{{ icon('check') }}Disponível</span>
+      {% elif livro.estoque > 0 %}<span class="badge badge-accent">{{ icon('clock') }}Últimas unidades</span>
+      {% else %}<span class="badge badge-warning">{{ icon('circle-alert') }}Indisponível no momento</span>{% endif %}
+    </div>
+
+    <section class="buy-box panel" aria-labelledby="comprar-titulo">
+      <h2 id="comprar-titulo" class="sr-only">Comprar ou alugar</h2>
+      {% if livro.estoque > 0 %}
+      <form method="post" action="{{ url_for('carrinho.adicionar') }}" class="buy-form" data-buy-form>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="livro_id" value="{{ livro.id }}">
+        <fieldset class="segmented buy-mode">
+          <legend>Modalidade</legend>
+          {% if aluga %}<label><input type="radio" name="tipo" value="aluguel" data-preco="{{ livro.preco_aluguel }}" checked><span>{{ icon('clock', 'icon-sm') }}Alugar <small>{{ livro.preco_aluguel|brl }}</small></span></label>{% endif %}
+          {% if vende %}<label><input type="radio" name="tipo" value="compra" data-preco="{{ livro.preco_venda }}" {% if not aluga %}checked{% endif %}><span>{{ icon('bookmark', 'icon-sm') }}Comprar <small>{{ livro.preco_venda|brl }}</small></span></label>{% endif %}
+        </fieldset>
+        {% if aluga %}
+        <fieldset class="segmented buy-days" data-days {% if not aluga %}hidden{% endif %}>
+          <legend>Prazo do aluguel</legend>
+          {% for d in [7, 14, 30] %}<label><input type="radio" name="dias" value="{{ d }}" {% if d == 14 %}checked{% endif %}><span>{{ d }} dias</span></label>{% endfor %}
+        </fieldset>
+        {% endif %}
+        <div class="buy-row">
+          <label class="buy-qty">Quantidade
+            <input name="quantidade" type="number" inputmode="numeric" min="1" max="{{ [livro.estoque, 20]|min }}" value="1" required>
+          </label>
+          <p class="buy-price"><span>Total</span><strong data-buy-total>{{ (livro.preco_aluguel if aluga else livro.preco_venda)|brl }}</strong></p>
+        </div>
+        <button class="button button-accent button-large button-block" type="submit">{{ icon('shopping-bag') }}Adicionar à sacola</button>
+        <p class="hint buy-hint">{{ icon('truck', 'icon-sm') }}Entrega por {{ config['DELIVERY_FEE']|brl }} ou retirada grátis em biblioteca parceira.</p>
+      </form>
+      {% else %}
+      <div class="waitlist">
+        <p><strong>Todos os exemplares estão emprestados.</strong> Peça para ser avisado quando um deles voltar.</p>
+        {% if usuario_atual %}
+        <form method="post" action="{{ url_for('livros.avise_me', livro_id=livro.id) }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          {% if em_espera %}
+          <p class="badge badge-info">{{ icon('bell') }}Você está na lista de espera</p>
+          <button class="button button-light" type="submit">Sair da lista de espera</button>
+          {% else %}
+          <button class="button button-accent" type="submit">{{ icon('bell') }}Avise-me quando voltar</button>
+          {% endif %}
+        </form>
+        {% else %}
+        <a class="button button-accent" href="{{ url_for('usuarios.login', next=request.path) }}">{{ icon('log-in') }}Entre para ser avisado</a>
+        {% endif %}
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="book-synopsis" aria-labelledby="sinopse-titulo">
+      <h2 id="sinopse-titulo">Sinopse</h2>
+      <p itemprop="description">{{ livro.resumo }}</p>
+    </section>
+
+    <dl class="book-facts">
+      <div><dt>{{ icon('building-2', 'icon-sm') }}Editora</dt><dd>{{ livro.editora or 'Não informada' }}</dd></div>
+      <div><dt>{{ icon('calendar', 'icon-sm') }}Ano</dt><dd>{{ livro.ano or 'Não informado' }}</dd></div>
+      <div><dt>{{ icon('id-card', 'icon-sm') }}ISBN</dt><dd itemprop="isbn">{{ livro.isbn or 'Não informado' }}</dd></div>
+      <div><dt>{{ icon('bookmark', 'icon-sm') }}Gênero</dt><dd><a href="{{ url_for('livros.catalogo', genero=livro.genero) }}">{{ livro.genero }}</a></dd></div>
+      <div><dt>{{ icon('library', 'icon-sm') }}Categoria</dt><dd>{{ livro.categoria }}</dd></div>
+      <div><dt>{{ icon('layers', 'icon-sm') }}Disponibilidade</dt><dd>{{ livro.estoque }} {{ 'exemplar' if livro.estoque == 1 else 'exemplares' }}</dd></div>
+    </dl>
+  </div>
+</article>
+
+<section id="avaliacoes" class="reviews-section" aria-labelledby="avaliacoes-titulo">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Voz de quem leu</p>
+      <h2 id="avaliacoes-titulo">Avaliações</h2>
+    </div>
+  </div>
+  <div class="reviews-layout">
+    <aside class="reviews-summary panel">
+      {% if livro.total_avaliacoes %}
+      <p class="reviews-average">{{ ('%.1f'|format(livro.media_avaliacao)).replace('.', ',') }}<small>de 5</small></p>
+      {{ ui.stars(livro.media_avaliacao, tamanho='is-large') }}
+      <p class="muted">{{ livro.total_avaliacoes }} {{ 'avaliação' if livro.total_avaliacoes == 1 else 'avaliações' }} de leitores com pedido pago</p>
+      <ul class="rating-bars">
+        {% for n, qtd in distribuicao.items() %}
+        <li><span>{{ n }} ★</span><span class="bar" style="--valor: {{ (100 * qtd / livro.total_avaliacoes)|round(1) }}%"><span></span></span><span>{{ qtd }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="reviews-average is-empty">—<small>sem notas</small></p>
+      <p class="muted">A média é calculada apenas com avaliações de leitores que compraram ou alugaram esta obra.</p>
+      {% endif %}
+    </aside>
+
+    <div class="reviews-content">
+      {% if pode_avaliar %}
+      <form method="post" action="{{ url_for('livros.avaliar', livro_id=livro.id) }}" class="panel review-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <h3>{{ 'Atualize sua avaliação' if minha_avaliacao else 'Conte como foi sua leitura' }}</h3>
+        <fieldset class="star-input">
+          <legend>Sua nota</legend>
+          {% for n in range(5, 0, -1) %}
+          <input type="radio" id="estrela-{{ n }}" name="estrelas" value="{{ n }}" required {% if minha_avaliacao and minha_avaliacao.estrelas == n %}checked{% endif %}>
+          <label for="estrela-{{ n }}" title="{{ n }} {{ 'estrela' if n == 1 else 'estrelas' }}"><span class="sr-only">{{ n }} {{ 'estrela' if n == 1 else 'estrelas' }}</span>★</label>
+          {% endfor %}
+        </fieldset>
+        <label>Comentário
+          <textarea name="comentario" rows="4" maxlength="1500" placeholder="O que você achou da obra? Evite revelar o final." required>{{ minha_avaliacao.comentario if minha_avaliacao else '' }}</textarea>
+        </label>
+        <div class="button-row"><button class="button" type="submit">{{ icon('pencil', 'icon-sm') }}{{ 'Salvar alterações' if minha_avaliacao else 'Publicar avaliação' }}</button></div>
+      </form>
+      {% elif usuario_atual %}
+      <p class="review-eligibility">{{ icon('info', 'icon-sm') }}Você poderá avaliar após uma compra ou aluguel confirmado desta obra.</p>
+      {% else %}
+      <p class="review-eligibility">{{ icon('info', 'icon-sm') }}<span><a href="{{ url_for('usuarios.login', next=url_for('livros.detalhes', livro_id=livro.id)) }}">Entre</a> e avalie depois de comprar ou alugar esta obra.</span></p>
+      {% endif %}
+
+      <div class="review-list">
+        {% for review in avaliacoes %}
+        <article class="review-card">
+          <header>
+            <span class="review-avatar" aria-hidden="true">{{ icon('user', 'icon-sm') }}</span>
+            <div>
+              <span class="review-author">Leitor verificado</span>
+              <small>{{ review.criada_em|data_br }}</small>
+            </div>
+            {{ ui.stars(review.estrelas) }}
+          </header>
+          <p>{{ review.comentario }}</p>
+          <small class="review-badge">{{ icon('badge-check', 'icon-sm') }}Avaliação de leitor com pedido pago</small>
+        </article>
+        {% else %}
+        {% call ui.empty_state('star', 'Sem avaliações por enquanto', 'Quando leitores reais avaliarem esta obra, elas aparecerão aqui. Não exibimos avaliações de demonstração.', 'h3', compacto=True) %}
+          {% if pode_avaliar %}<a class="button button-light" href="#avaliacoes">Seja a primeira pessoa a avaliar</a>{% endif %}
+        {% endcall %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if tambem_levaram %}
+<section class="section-block" aria-labelledby="levaram-titulo">
+  <div class="section-heading"><div><p class="eyebrow">Pedidos da comunidade</p><h2 id="levaram-titulo">Quem comprou também levou</h2></div></div>
+  <div class="book-grid">{% for item in tambem_levaram %}{{ ui.book_card(item) }}{% endfor %}</div>
+</section>
+{% endif %}
+
+<section class="section-block" aria-labelledby="relacionados-titulo">
+  <div class="section-heading">
+    <div><p class="eyebrow">Na mesma estante</p><h2 id="relacionados-titulo">Mais de {{ livro.genero }}</h2></div>
+    <a class="text-link" href="{{ url_for('livros.catalogo', genero=livro.genero) }}">Ver gênero completo{{ icon('arrow-right', 'icon-sm') }}</a>
+  </div>
+  {% if relacionados %}
+  <div class="book-grid">{% for item in relacionados %}{{ ui.book_card(item) }}{% endfor %}</div>
+  {% else %}
+  {% call ui.empty_state('library', 'Este é o único título do gênero por enquanto', 'Novas obras chegam pela curadoria e por doações da comunidade.', 'h3', compacto=True) %}
+    <a class="button button-light" href="{{ url_for('livros.catalogo') }}">Explorar outros gêneros</a>
+  {% endcall %}
+  {% endif %}
+</section>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.querySelector('[data-buy-form]');
+  if (!form) return;
+  const days = form.querySelector('[data-days]');
+  const total = form.querySelector('[data-buy-total]');
+  const qty = form.querySelector('[name="quantidade"]');
+  const update = () => {
+    const tipo = form.querySelector('[name="tipo"]:checked');
+    if (days) {
+      days.hidden = tipo?.value !== 'aluguel';
+      days.querySelectorAll('input').forEach((i) => { i.disabled = days.hidden; });
+    }
+    const preco = Number(tipo?.dataset.preco || 0) * Math.max(1, Number(qty.value) || 1);
+    total.textContent = preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+  form.addEventListener('change', update);
+  qty.addEventListener('input', update);
+  update();
+});
+</script>
+{% endblock %}

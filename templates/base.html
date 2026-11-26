@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#102B23">
+    <meta name="description" content="{% block description %}Biblioteca Aberta: acervo comunitário para alugar, comprar, doar e retirar livros em bibliotecas parceiras.{% endblock %}">
+    <title>{% block title %}Biblioteca Aberta{% endblock %} | Biblioteca Aberta</title>
+    <link rel="preload" href="{{ url_for('static', filename='fonts/source-sans-3-latin-wght-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{{ url_for('static', filename='fonts/fraunces-latin-wght-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+    {% for css in ['css/global.css','css/components.css','css/header_footer.css','css/pages/carrinho.css'] %}
+    <link rel="stylesheet" href="{{ url_for('static', filename=css) }}">
+    {% endfor %}
+    {% block page_css %}{% endblock %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/print.css') }}" media="print">
+    <script defer src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/ui.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/cart.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/validacao.js') }}"></script>
+    {% block head %}{% endblock %}
+  </head>
+  {%- set endpoint = request.endpoint or '' -%}
+  {%- set itens_sacola = session.get('carrinho', {}).values()|sum -%}
+  {%- set nav_links = [
+    ('main.home', 'Início', 'house'),
+    ('livros.catalogo', 'Acervo', 'book-open'),
+    ('bibliotecas.bibliotecas', 'Bibliotecas', 'map-pin'),
+    ('main.planos', 'Planos', 'sparkles'),
+    ('doacoes.doe', 'Doe um livro', 'gift'),
+  ] -%}
+  <body class="{% block body_class %}{% endblock %}" data-sprite="{{ url_for('static', filename='icons/sprite.svg') }}">
+    <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+    <header class="site-header" data-site-header>
+      <div class="header-bar">
+        <div class="header-start">
+          <a class="header-icon-btn nav-toggle" href="#menu-mobile" data-drawer-open="menu-mobile" aria-controls="menu-mobile" aria-expanded="false" aria-label="Abrir menu de navegação">{{ icon('menu') }}</a>
+          <a class="brand" href="{{ url_for('main.home') }}" aria-label="Biblioteca Aberta, página inicial">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 40 40"><rect x="5" y="9" width="7" height="24" rx="1.5"/><rect x="14" y="6" width="7" height="27" rx="1.5"/><rect x="23.5" y="10" width="7" height="23" rx="1.5" transform="rotate(-12 27 21.5)"/><path d="M3 35h34"/></svg>
+            </span>
+            <span class="brand-name">Biblioteca Aberta<small>histórias que circulam</small></span>
+          </a>
+        </div>
+
+        <form class="header-search" id="busca-cabecalho" role="search" action="{{ url_for('livros.catalogo') }}" method="get" data-search data-suggest-url="{{ url_for('livros.sugestoes') }}">
+          <label class="sr-only" for="busca-global">Buscar no acervo</label>
+          <div class="search-field">
+            {{ icon('search', 'search-field-icon') }}
+            <input id="busca-global" name="q" type="search" value="{{ request.args.get('q','') if endpoint == 'livros.catalogo' else '' }}" placeholder="Busque por título, autor ou ISBN" autocomplete="off" spellcheck="false" enterkeyhint="search" maxlength="120"
+              role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="busca-sugestoes" aria-describedby="busca-dica">
+            <button class="search-submit" type="submit">Buscar</button>
+            <button class="search-close" type="button" data-search-close aria-label="Fechar busca">{{ icon('x') }}</button>
+          </div>
+          <span id="busca-dica" class="sr-only">Digite ao menos 2 letras para ver sugestões. Use as setas para navegar.</span>
+          <div class="search-suggestions" id="busca-sugestoes" role="listbox" aria-label="Sugestões de busca" hidden></div>
+          <span class="sr-only" aria-live="polite" data-search-status></span>
+        </form>
+
+        <div class="header-actions">
+          <a class="header-icon-btn search-toggle" href="{{ url_for('livros.catalogo') }}" data-search-open aria-controls="busca-cabecalho" aria-expanded="false" aria-label="Abrir busca">{{ icon('search') }}</a>
+          <a class="header-icon-btn cart-action" href="{{ url_for('carrinho.ver_carrinho') }}" data-cart-trigger data-drawer-open="sacola" aria-controls="sacola" aria-expanded="false" aria-label="Sacola, {{ itens_sacola }} {{ 'item' if itens_sacola == 1 else 'itens' }}">
+            {{ icon('shopping-bag') }}
+            <span class="cart-count{% if not itens_sacola %} is-empty{% endif %}" data-cart-count aria-hidden="true">{{ itens_sacola }}</span>
+          </a>
+          {% if usuario_atual %}
+          <div class="account-menu" data-menu>
+            <a class="account-trigger" href="{{ url_for('usuarios.perfil') }}" data-menu-trigger aria-controls="menu-conta" aria-haspopup="menu" aria-expanded="false" aria-label="Menu da conta de {{ usuario_atual.nome }}">
+              {{ avatar(usuario_atual) }}
+              {{ icon('chevron-down', 'account-chevron icon-sm') }}
+            </a>
+            <div class="ui-menu account-dropdown" id="menu-conta" role="menu" aria-label="Conta" data-menu-panel hidden>
+              <div class="account-card" role="none">
+                {{ avatar(usuario_atual, 'avatar-lg') }}
+                <div class="account-card-text">
+                  <strong>{{ usuario_atual.nome }}</strong>
+                  <span>{{ usuario_atual.email }}</span>
+                </div>
+              </div>
+              <hr class="ui-menu-separator" role="separator">
+              <a class="ui-menu-item" role="menuitem" href="{{ url_for('usuarios.perfil') }}">{{ icon('user') }}Meu perfil</a>
+              <a class="ui-menu-item" role="menuitem" href="{{ url_for('usuarios.perfil', aba='pedidos') }}">{{ icon('package') }}Meus pedidos</a>
+              <a class="ui-menu-item" role="menuitem" href="{{ url_for('usuarios.perfil', aba='favoritos') }}">{{ icon('heart') }}Favoritos</a>
+              <a class="ui-menu-item" role="menuitem" href="{{ url_for('usuarios.perfil', aba='dados') }}">{{ icon('settings') }}Configurações</a>
+              <hr class="ui-menu-separator" role="separator">
+              <form method="post" action="{{ url_for('usuarios.logout') }}" role="none">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="ui-menu-item is-danger" role="menuitem" type="submit">{{ icon('log-out') }}Sair da conta</button>
+              </form>
+            </div>
+          </div>
+          {% else %}
+          <a class="button button-signin" href="{{ url_for('usuarios.login', next=request.path if endpoint not in ('usuarios.login', 'main.home') else None) }}">{{ icon('log-in') }}<span>Entrar</span></a>
+          {% endif %}
+        </div>
+      </div>
+
+      <nav class="header-nav" aria-label="Navegação principal">
+        <ul>
+          {% for ep, rotulo, ic in nav_links %}
+          <li><a href="{{ url_for(ep) }}"{% if endpoint == ep or (ep == 'livros.catalogo' and endpoint == 'livros.detalhes') %} aria-current="page"{% endif %}>{{ rotulo }}</a></li>
+          {% endfor %}
+        </ul>
+      </nav>
+    </header>
+
+    <div class="ui-drawer from-left mobile-drawer" id="menu-mobile" role="dialog" aria-modal="true" aria-labelledby="menu-mobile-titulo" data-drawer>
+      <div class="ui-drawer-header">
+        <h2 id="menu-mobile-titulo" tabindex="-1">Menu</h2>
+        <a class="ui-close" href="#" data-drawer-close aria-label="Fechar menu">{{ icon('x') }}</a>
+      </div>
+      <div class="ui-drawer-body">
+        {% if usuario_atual %}
+        <a class="drawer-account" href="{{ url_for('usuarios.perfil') }}">
+          {{ avatar(usuario_atual, 'avatar-lg') }}
+          <span><strong>{{ usuario_atual.nome }}</strong><small>{{ usuario_atual.email }}</small></span>
+        </a>
+        {% else %}
+        <div class="drawer-welcome">
+          <p><strong>Boas-vindas!</strong> Entre para acompanhar pedidos, favoritos e doações.</p>
+          <div class="button-row">
+            <a class="button" href="{{ url_for('usuarios.login') }}">{{ icon('log-in') }}Entrar</a>
+            <a class="button button-light" href="{{ url_for('usuarios.login') }}#cadastro">{{ icon('user-plus') }}Criar conta</a>
+          </div>
+        </div>
+        {% endif %}
+
+        <nav class="drawer-nav" aria-label="Navegação principal (menu)">
+          <p class="drawer-label">Navegar</p>
+          <ul>
+            {% for ep, rotulo, ic in nav_links %}
+            <li><a href="{{ url_for(ep) }}"{% if endpoint == ep %} aria-current="page"{% endif %}>{{ icon(ic) }}{{ rotulo }}</a></li>
+            {% endfor %}
+            <li><a href="{{ url_for('carrinho.ver_carrinho') }}"{% if endpoint == 'carrinho.ver_carrinho' %} aria-current="page"{% endif %}>{{ icon('shopping-bag') }}Sacola<span class="drawer-count" data-cart-count>{{ itens_sacola }}</span></a></li>
+          </ul>
+          {% if usuario_atual %}
+          <p class="drawer-label">Sua conta</p>
+          <ul>
+            <li><a href="{{ url_for('usuarios.perfil') }}">{{ icon('user') }}Meu perfil</a></li>
+            <li><a href="{{ url_for('usuarios.perfil', aba='pedidos') }}">{{ icon('package') }}Meus pedidos</a></li>
+            <li><a href="{{ url_for('usuarios.perfil', aba='favoritos') }}">{{ icon('heart') }}Favoritos</a></li>
+            <li><a href="{{ url_for('usuarios.perfil', aba='dados') }}">{{ icon('settings') }}Configurações</a></li>
+          </ul>
+          {% endif %}
+        </nav>
+      </div>
+      <div class="ui-drawer-footer drawer-footer">
+        {% if usuario_atual %}
+        <form method="post" action="{{ url_for('usuarios.logout') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button class="ui-menu-item is-danger" type="submit">{{ icon('log-out') }}Sair da conta</button>
+        </form>
+        {% endif %}
+        <p class="drawer-legal"><a href="{{ url_for('main.termos') }}">Termos</a> · <a href="{{ url_for('main.privacidade') }}">Privacidade</a> · <a href="{{ url_for('main.cookies') }}">Cookies</a></p>
+      </div>
+    </div>
+
+    <div class="ui-drawer from-right cart-drawer" id="sacola" role="dialog" aria-modal="true" aria-labelledby="sacola-titulo" data-drawer data-cart-drawer
+      data-state-url="{{ url_for('carrinho.estado') }}" data-update-url="{{ url_for('carrinho.atualizar') }}" data-remove-url="{{ url_for('carrinho.remover') }}"
+      data-delivery-url="{{ url_for('carrinho.escolher_entrega') }}" data-add-url="{{ url_for('carrinho.adicionar') }}">
+      <div class="ui-drawer-header">
+        <div>
+          <h2 id="sacola-titulo" tabindex="-1">Sua sacola</h2>
+          <p class="cart-drawer-count" data-cart-heading>{{ itens_sacola }} {{ 'item' if itens_sacola == 1 else 'itens' }}</p>
+        </div>
+        <button class="ui-close" type="button" data-drawer-close aria-label="Fechar sacola">{{ icon('x') }}</button>
+      </div>
+      <p class="sr-only" aria-live="polite" aria-atomic="true" data-cart-live></p>
+      <div class="ui-drawer-body cart-drawer-body" data-cart-body aria-busy="true">
+        {% for _ in range(3) %}
+        <div class="cart-item is-skeleton" aria-hidden="true">
+          <span class="cart-item-cover skeleton"></span>
+          <div><span class="skeleton skeleton-text"></span><span class="skeleton skeleton-text is-short"></span><span class="skeleton skeleton-text is-short"></span></div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="ui-drawer-footer cart-drawer-footer" data-cart-footer>
+        <fieldset class="segmented" data-cart-delivery>
+          <legend class="sr-only">Como você quer receber?</legend>
+          <label><input type="radio" name="sacola_entrega" value="domicilio"><span>{{ icon('truck', 'icon-sm') }}Entrega <small>+{{ config['DELIVERY_FEE']|brl }}</small></span></label>
+          <label><input type="radio" name="sacola_entrega" value="retirada"><span>{{ icon('library', 'icon-sm') }}Retirada <small>grátis</small></span></label>
+        </fieldset>
+        <dl class="cart-totals">
+          <div><dt>Subtotal</dt><dd data-cart-subtotal>R$ 0,00</dd></div>
+          <div><dt>Entrega</dt><dd data-cart-frete>Escolha acima</dd></div>
+          <div class="cart-totals-total"><dt>Total</dt><dd data-cart-total>R$ 0,00</dd></div>
+        </dl>
+        <p class="cart-empty-hint" id="sacola-vazia-dica">{{ icon('info', 'icon-sm') }}Adicione um livro para continuar para o checkout.</p>
+        <button class="button button-accent button-block button-large" type="button" data-cart-checkout data-href="{{ url_for('carrinho.checkout') }}" disabled>Continuar para o checkout{{ icon('arrow-right') }}</button>
+        <a class="cart-drawer-link" href="{{ url_for('carrinho.ver_carrinho') }}">Ver sacola completa</a>
+      </div>
+    </div>
+
+    <main class="container" id="conteudo" tabindex="-1">
+      {% with mensagens=get_flashed_messages(with_categories=true) %}{% if mensagens %}
+      <div class="flash-list" aria-live="polite">
+        {% for categoria,mensagem in mensagens %}
+        <div class="flash {{ categoria }}" role="{{ 'alert' if categoria == 'erro' else 'status' }}">
+          {{ icon('circle-alert' if categoria == 'erro' else 'circle-check' if categoria == 'sucesso' else 'info') }}
+          <span class="flash-text">{{ mensagem }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}{% endwith %}{% block content %}{% endblock %}
+    </main>
+
+    {%- set nao_informado = 'Não informado' -%}
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <a class="brand" href="{{ url_for('main.home') }}" aria-label="Biblioteca Aberta, página inicial">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 40 40"><rect x="5" y="9" width="7" height="24" rx="1.5"/><rect x="14" y="6" width="7" height="27" rx="1.5"/><rect x="23.5" y="10" width="7" height="23" rx="1.5" transform="rotate(-12 27 21.5)"/><path d="M3 35h34"/></svg>
+            </span>
+            <span class="brand-name">Biblioteca Aberta<small>histórias que circulam</small></span>
+          </a>
+          <p>Um acervo comunitário para alugar, comprar e doar livros — e retirar sua próxima leitura em uma biblioteca parceira.</p>
+          {% if modo_demo %}<span class="badge badge-demo">{{ icon('info') }}Pagamentos em modo de demonstração</span>{% endif %}
+        </div>
+
+        <nav class="footer-column" aria-labelledby="rodape-explore">
+          <h2 id="rodape-explore">Explore</h2>
+          <ul>
+            <li><a href="{{ url_for('livros.catalogo') }}">Acervo</a></li>
+            <li><a href="{{ url_for('bibliotecas.bibliotecas') }}">Bibliotecas parceiras</a></li>
+            <li><a href="{{ url_for('main.planos') }}">Planos de leitura</a></li>
+            <li><a href="{{ url_for('doacoes.doe') }}">Doe um livro</a></li>
+          </ul>
+        </nav>
+
+        <nav class="footer-column" aria-labelledby="rodape-conta">
+          <h2 id="rodape-conta">Sua conta</h2>
+          <ul>
+            {% if usuario_atual %}
+            <li><a href="{{ url_for('usuarios.perfil') }}">Meu perfil</a></li>
+            <li><a href="{{ url_for('usuarios.perfil', aba='pedidos') }}">Meus pedidos</a></li>
+            {% else %}
+            <li><a href="{{ url_for('usuarios.login') }}">Entrar</a></li>
+            <li><a href="{{ url_for('usuarios.login') }}#cadastro">Criar conta</a></li>
+            {% endif %}
+            <li><a href="{{ url_for('carrinho.ver_carrinho') }}">Sacola</a></li>
+          </ul>
+          <h2 class="footer-subheading">Legal</h2>
+          <ul>
+            <li><a href="{{ url_for('main.termos') }}">Termos e Condições</a></li>
+            <li><a href="{{ url_for('main.privacidade') }}">Política de Privacidade</a></li>
+            <li><a href="{{ url_for('main.cookies') }}">Política de Cookies</a></li>
+            <li><a href="{{ url_for('doacoes.transparencia') }}">Transparência das doações</a></li>
+          </ul>
+        </nav>
+
+        <div class="footer-column footer-contact">
+          <h2>Contato e instituição</h2>
+          <dl>
+            <div><dt>CNPJ</dt><dd>{{ config['BUSINESS_CNPJ'] or nao_informado }}</dd></div>
+            <div><dt>Endereço</dt><dd>{{ config['BUSINESS_ADDRESS'] or nao_informado }}</dd></div>
+            <div><dt>Telefone</dt><dd>{{ config['BUSINESS_PHONE'] or nao_informado }}</dd></div>
+            <div><dt>E-mail</dt><dd>{% if config['BUSINESS_EMAIL'] %}<a href="mailto:{{ config['BUSINESS_EMAIL'] }}">{{ config['BUSINESS_EMAIL'] }}</a>{% else %}{{ nao_informado }}{% endif %}</dd></div>
+          </dl>
+          {% if config['BUSINESS_WHATSAPP'] %}<a class="whatsapp-button" href="https://wa.me/{{ config['BUSINESS_WHATSAPP'] }}" target="_blank" rel="noopener noreferrer" aria-label="Falar com a biblioteca pelo WhatsApp (abre em nova aba)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 3.6A11.8 11.8 0 0 0 2 17.8L.8 23.2l5.5-1.4A11.8 11.8 0 0 0 23 11.7c0-3.1-1.2-6-3.4-8.1ZM12 21a9.3 9.3 0 0 1-4.7-1.3l-.4-.2-3.2.8.9-3.1-.2-.4A9.4 9.4 0 1 1 12 21Zm5.2-7c-.3-.2-1.7-.8-2-.9-.3-.1-.5-.2-.7.2-.2.3-.7.9-.8 1.1-.2.2-.3.2-.6.1-1.7-.8-2.8-1.5-3.9-3.4-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5l-.9-2.1c-.2-.5-.5-.4-.7-.4h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.3s1.1 2.6 1.3 2.8c.2.2 2.1 3.3 5.1 4.6 1.9.8 2.6.9 3.6.8.6-.1 1.7-.7 1.9-1.3.2-.6.2-1.2.2-1.3-.1-.2-.3-.3-.6-.4Z"/></svg>Fale pelo WhatsApp</a>{% endif %}
+        </div>
+
+        <div class="footer-bottom">
+          <span>© {{ current_year }} Biblioteca Aberta. Projeto acadêmico de demonstração.</span>
+          <a class="back-to-top" href="#conteudo">{{ icon('arrow-right', 'icon-sm back-to-top-icon') }}Voltar ao topo</a>
+        </div>
+      </div>
+    </footer>
+
+    <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="false"></div>
+  </body>
+</html>

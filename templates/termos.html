@@ -1,0 +1,80 @@
+{% extends '_legal_base.html' %}
+{% block title %}Termos e Condições{% endblock %}
+{% block toc %}
+<li><a href="#cadastro">Cadastro e conta</a></li>
+<li><a href="#catalogo">Catálogo, preços e disponibilidade</a></li>
+<li><a href="#pagamentos">Pagamentos</a></li>
+<li><a href="#entrega">Entrega e retirada</a></li>
+<li><a href="#arrependimento">Direito de arrependimento</a></li>
+<li><a href="#alugueis">Aluguéis, multas e conservação</a></li>
+<li><a href="#estornos">Cancelamentos e estornos</a></li>
+<li><a href="#avaliacoes">Avaliações</a></li>
+<li><a href="#privacidade">Privacidade</a></li>
+<li><a href="#atendimento">Atendimento e alterações</a></li>
+{% endblock %}
+{% block doc %}
+<p class="eyebrow">Versão {{ versao_termos }}</p>
+<h1>Termos e Condições</h1>
+<p class="legal-notice">{{ icon('triangle-alert', 'icon-sm') }}<span>Este texto é uma base informativa do projeto e precisa ser revisado por assessoria jurídica, preenchido com os dados reais da entidade e adequado à operação antes de publicação ou cobrança de clientes.</span></p>
+
+<section id="cadastro">
+  <h2>1. Cadastro e conta</h2>
+  <p>O usuário deve fornecer dados corretos, manter a confidencialidade de suas credenciais e comunicar uso não autorizado da conta. A plataforma pode bloquear contas que violem estes termos, respeitando a legislação aplicável. O titular pode excluir a conta a qualquer momento pelo perfil; os pedidos são mantidos de forma anonimizada.</p>
+</section>
+
+<section id="catalogo">
+  <h2>2. Catálogo, preços e disponibilidade</h2>
+  <p>Disponibilidade e valores são exibidos antes da confirmação. Um pedido só é confirmado após a aprovação do pagamento. A reserva de estoque é liberada se o pagamento for recusado ou cancelado. Descrições e capas identificam as obras do acervo e podem variar conforme a edição.</p>
+</section>
+
+<section id="pagamentos">
+  <h2>3. Pagamentos</h2>
+  <p>Nesta versão, os <strong>pagamentos funcionam em modo de demonstração</strong>: Pix e cartão são simulados, nenhuma cobrança real é realizada e nenhum dado de cartão é enviado a terceiros ou armazenado. O QR Code exibido é fictício e não pode ser pago. Antes de qualquer cobrança real, estes termos devem ser atualizados com o provedor de pagamento escolhido.</p>
+</section>
+
+<section id="entrega">
+  <h2>4. Entrega e retirada</h2>
+  <ul>
+    <li><strong>Entrega em domicílio:</strong> taxa única de {{ config['DELIVERY_FEE']|brl }} por pedido, apenas para endereços dentro da área de atendimento informada no checkout{% if config['DELIVERY_CITIES'] %} ({{ config['DELIVERY_CITIES']|join(', ') }}){% elif config['DELIVERY_STATES'] %} ({{ config['DELIVERY_STATES']|join(', ') }}){% endif %}. Prazo estimado de até 5 dias úteis após a aprovação do pagamento.</li>
+    <li><strong>Retirada:</strong> gratuita, em uma biblioteca parceira escolhida no checkout. O livro fica separado por até 7 dias corridos após o aviso “Disponível para retirada”; é necessário apresentar documento com foto.</li>
+    <li>O prazo do aluguel começa a contar na data do pedido. Atrasos de entrega causados pela operação estendem o prazo de devolução pelo mesmo período.</li>
+  </ul>
+</section>
+
+<section id="arrependimento">
+  <h2>5. Direito de arrependimento</h2>
+  <p>Conforme o art. 49 do Código de Defesa do Consumidor, compras realizadas pela internet podem ser canceladas em até <strong>7 (sete) dias corridos</strong> a contar do recebimento do produto, sem necessidade de justificativa. Os valores pagos, incluindo a taxa de entrega, são devolvidos integralmente. O livro deve ser devolvido nas mesmas condições em que foi recebido.</p>
+  <p>Para aluguéis, o arrependimento pode ser exercido no mesmo prazo, desde que o exemplar seja devolvido sem uso indevido; o valor proporcional ao período já utilizado pode ser descontado quando a legislação permitir.</p>
+</section>
+
+<section id="alugueis">
+  <h2>6. Aluguéis, multas e conservação</h2>
+  <ul>
+    <li><strong>Prazos:</strong> 7, 14 ou 30 dias, escolhidos no pedido. O aluguel pode ser renovado pelo perfil até 2 vezes, se houver exemplar livre e não houver atraso.</li>
+    <li><strong>Multa por atraso:</strong> 10% do valor do aluguel por dia de atraso, limitada ao preço de venda do livro.</li>
+    <li><strong>Conservação:</strong> o leitor deve manter o exemplar limpo e íntegro, sem anotações, dobras de página ou exposição a umidade.</li>
+    <li><strong>Perda ou dano:</strong> em caso de perda ou dano que impeça novo empréstimo, será cobrada a reposição pelo preço de venda vigente, descontadas eventuais multas já pagas. Danos leves podem gerar cobrança proporcional ao reparo.</li>
+  </ul>
+</section>
+
+<section id="estornos">
+  <h2>7. Cancelamentos e estornos</h2>
+  <p>Pedidos ainda não enviados podem ser cancelados pelos canais de atendimento. Estornos aprovados são processados em até <strong>10 dias úteis</strong> pelo mesmo meio de pagamento; no cartão de crédito, o crédito pode aparecer em até duas faturas, conforme a operadora. Em modo de demonstração não há valores a estornar.</p>
+</section>
+
+<section id="avaliacoes">
+  <h2>8. Avaliações</h2>
+  <p>Avaliações são escritas por usuários com transação paga registrada, e cada usuário pode manter uma avaliação por obra, que pode ser editada ou removida no perfil. O nome de quem avalia não é exibido publicamente.</p>
+</section>
+
+<section id="privacidade">
+  <h2>9. Privacidade e dados pessoais</h2>
+  <p>O tratamento de dados pessoais segue a <a href="{{ url_for('main.privacidade') }}">Política de Privacidade</a> e a <a href="{{ url_for('main.cookies') }}">Política de Cookies</a>. O aceite destes termos é registrado com a versão vigente em cada pedido e é separado do consentimento para tratamento de dados.</p>
+</section>
+
+<section id="atendimento">
+  <h2>10. Atendimento e alterações</h2>
+  <p>Dúvidas, solicitações, cancelamentos e estornos devem ser encaminhados aos canais oficiais indicados no rodapé{% if config['BUSINESS_EMAIL'] %} ou pelo e-mail <a href="mailto:{{ config['BUSINESS_EMAIL'] }}">{{ config['BUSINESS_EMAIL'] }}</a>{% endif %}. Alterações destes termos são publicadas com nova versão e comunicadas aos usuários quando necessário.</p>
+</section>
+<p class="hint">Ao concluir um pedido, o usuário confirma que leu e aceita esta versão dos Termos e Condições.</p>
+{% endblock %}

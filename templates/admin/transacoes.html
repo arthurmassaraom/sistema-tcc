@@ -1,0 +1,63 @@
+{% extends 'admin_base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Clientes e pedidos{% endblock %}
+{% block content %}
+<header class="admin-title">
+  <div>
+    <p class="eyebrow">Operações</p>
+    <h1>Clientes e transações</h1>
+    <p class="muted">{{ transacoes|length }} de {{ total }} {{ 'registro' if total == 1 else 'registros' }}</p>
+  </div>
+</header>
+
+<form method="get" class="admin-filters" role="search" data-autosubmit>
+  <label class="admin-search">{{ icon('search', 'icon-sm') }}<span class="sr-only">Buscar</span><input type="search" name="q" value="{{ q }}" placeholder="Cliente, e-mail, livro ou nº do pedido"></label>
+  <label>Situação
+    <select name="status">
+      <option value="">Todas</option>
+      {% for chave in ['aguardando_pagamento', 'ativa', 'concluida', 'devolvida', 'cancelada'] %}<option value="{{ chave }}" {% if status == chave %}selected{% endif %}>{{ status_pedido(chave)[0] }}</option>{% endfor %}
+    </select>
+  </label>
+  <button class="button button-light" type="submit">Filtrar</button>
+</form>
+
+{% if transacoes %}
+<div class="table-wrap responsive-table">
+  <table>
+    <caption class="sr-only">Pedidos e transações</caption>
+    <thead><tr><th scope="col">Cliente</th><th scope="col">Livro / tipo</th><th scope="col">Data e prazo</th><th scope="col">Entrega / retirada</th><th scope="col">Valor / multa</th><th scope="col">Pagamento</th></tr></thead>
+    <tbody>
+      {% for tx in transacoes %}
+      <tr>
+        <td data-label="Cliente"><strong>{{ tx.nome_completo or tx.usuario.nome }}</strong><br><small class="muted">{{ tx.email_contato or tx.usuario.email }}</small>{% if tx.referencia_pedido %}<br><small class="muted">Pedido {{ tx.referencia_pedido[:8]|upper }}</small>{% endif %}</td>
+        <td data-label="Livro">{{ tx.livro.titulo }} × {{ tx.quantidade or 1 }}<br><small>{{ tx.tipo|capitalize }}{% if tx.dias_aluguel %} · {{ tx.dias_aluguel }} dias{% endif %}</small><br>{{ ui.status_badge(tx.status) }}</td>
+        <td data-label="Data">{{ tx.data_transacao|data_br }}{% if tx.data_devolucao_prevista %}<br><small>Devolver até {{ tx.data_devolucao_prevista|data_br }}</small>{% endif %}</td>
+        <td data-label="Entrega">
+          {{ 'Domicílio' if tx.modo_entrega == 'domicilio' else 'Retirada' }}{% if tx.biblioteca %}<br><small>{{ tx.biblioteca.nome }}</small>{% endif %}{% if tx.endereco_entrega %}<br><small>{{ tx.endereco_entrega }}</small>{% endif %}
+          <br><span class="badge">{{ tx.status_entrega }}</span>
+          {% if tx.pagamento_status=='approved' and tx.status in ['ativa','concluida'] %}
+          <form method="post" action="{{ url_for('admin.atualizar_entrega',transacao_id=tx.id) }}" class="admin-form-inline">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <select name="status_entrega" aria-label="Status da entrega">
+              {% for s in ['Preparando envio','Aguardando retirada','Enviado','Disponível para retirada','Retirado','Entregue'] %}
+              <option {% if tx.status_entrega==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+            </select>
+            <button class="button button-small" type="submit">Atualizar</button>
+          </form>
+          {% endif %}
+        </td>
+        <td data-label="Valor">{{ (tx.valor_base+tx.frete)|brl }}{% if tx.tipo=='aluguel' and tx.pagamento_status=='approved' %}<br><small>Multa: {{ (tx.multa if tx.status!='ativa' else tx.calcular_multa())|brl }}</small>{% endif %}</td>
+        <td data-label="Pagamento">{{ tx.forma_pagamento }}<br><span class="badge{% if tx.pagamento_status == 'approved' %} badge-success{% elif tx.pagamento_status in ['rejected','cancelled'] %} badge-danger{% else %} badge-warning{% endif %}">{{ tx.pagamento_status|capitalize }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif total %}
+{% call ui.empty_state('search-x', 'Nenhum pedido com esses filtros', 'Tente outro termo de busca ou outra situação.') %}
+  <a class="button button-light" href="{{ url_for('admin.transacoes') }}">Limpar filtros</a>
+{% endcall %}
+{% else %}
+{% call ui.empty_state('receipt', 'Ainda não há pedidos', 'Quando clientes finalizarem compras ou aluguéis, eles aparecem aqui para acompanhamento de entrega e pagamento.') %}{% endcall %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Bibliotecas parceiras{% endblock %}
+{% block page_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/bibliotecas.css') }}">{% endblock %}
+{% block head %}<script defer src="{{ url_for('static', filename='js/cep.js') }}"></script>{% endblock %}
+{% block content %}
+{%- macro mapa_url(b) -%}https://www.google.com/maps?q={{ ((b.latitude ~ ',' ~ b.longitude) if b.latitude is not none else (b.endereco ~ ', ' ~ b.cidade ~ ' - ' ~ b.estado ~ ', ' ~ b.cep))|urlencode }}&z=16&hl=pt-BR&output=embed{%- endmacro -%}
+{% call ui.page_header('Pontos de encontro', 'Bibliotecas parceiras', 'Retire seus livros gratuitamente, entregue doações e encontre leitura perto de você.', 'map-pin') %}{% endcall %}
+
+<section class="cep-search" aria-labelledby="busca-cep-titulo">
+  <div class="cep-search-copy">
+    <p class="eyebrow">{{ icon('navigation', 'icon-sm') }}Busca por proximidade</p>
+    <h2 id="busca-cep-titulo">Qual unidade fica mais perto?</h2>
+    <p>Informe seu CEP: mostramos primeiro as unidades da sua cidade, depois as do seu estado.</p>
+  </div>
+  <form id="cep-form" class="cep-form" novalidate>
+    <label class="sr-only" for="cep">CEP</label>
+    <div class="cep-field">
+      {{ icon('map-pin') }}
+      <input id="cep" name="cep" data-mask="cep" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" required aria-describedby="cep-feedback">
+    </div>
+    <button class="button button-accent" type="submit">{{ icon('search', 'icon-sm') }}Buscar</button>
+  </form>
+  <p id="cep-feedback" class="cep-status" aria-live="polite"></p>
+  <div id="cep-result" hidden></div>
+</section>
+
+<div id="regional-results" aria-live="polite"></div>
+<template id="cep-skeleton">
+  <div class="library-grid" aria-hidden="true">
+    {% for _ in range(3) %}<div class="library-card is-skeleton"><span class="skeleton skeleton-text is-short"></span><span class="skeleton skeleton-text"></span><span class="skeleton skeleton-text"></span><span class="skeleton skeleton-text is-short"></span></div>{% endfor %}
+  </div>
+</template>
+
+{% if total_rede %}
+<section class="network" aria-labelledby="rede-titulo">
+  <div class="network-toolbar">
+    <div>
+      <h2 id="rede-titulo">Rede parceira <span class="badge">{{ total_rede }} {{ 'unidade' if total_rede == 1 else 'unidades' }}</span></h2>
+      <p class="muted">{{ bibliotecas|length }} {{ 'resultado' if bibliotecas|length == 1 else 'resultados' }} com os filtros atuais.</p>
+    </div>
+    <form method="get" class="network-filters" data-autosubmit>
+      <label>Cidade
+        <select name="cidade">
+          <option value="">Todas as cidades</option>
+          {% for nome, uf in cidades %}<option value="{{ nome }}/{{ uf }}" {% if cidade == nome ~ '/' ~ uf %}selected{% endif %}>{{ nome }}/{{ uf }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Funcionamento
+        <select name="periodo">
+          <option value="">Qualquer horário</option>
+          {% for chave, rotulo in periodos.items() %}<option value="{{ chave }}" {% if periodo == chave %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+        </select>
+      </label>
+      <noscript><button class="button button-small" type="submit">Filtrar</button></noscript>
+    </form>
+  </div>
+
+  <div class="network-layout">
+    <div class="library-list">
+      {% for b in bibliotecas %}
+      <article class="library-card{% if selecionada and selecionada.id == b.id %} is-selected{% endif %}">
+        <div class="library-card-head">
+          <span class="badge badge-primary">{{ b.estado }} · {{ b.cidade }}</span>
+          {% if b.horario %}<span class="badge">{{ icon('clock') }}{{ b.horario }}</span>{% else %}<span class="badge badge-warning">{{ icon('clock') }}Horário não informado</span>{% endif %}
+        </div>
+        <h3>{{ b.nome }}</h3>
+        <p>{{ icon('map-pin', 'icon-sm') }}{{ b.endereco }} · CEP {{ b.cep }}</p>
+        {% if b.telefone %}<p>{{ icon('phone', 'icon-sm') }}{{ b.telefone }}</p>{% endif %}
+        <div class="library-card-actions">
+          <a class="button button-light button-small" href="{{ url_for('bibliotecas.bibliotecas', cidade=cidade or None, periodo=periodo or None, unidade=b.id) }}#mapa" data-map-select="{{ b.id }}" data-map-url="{{ mapa_url(b) if mapas_ativos else '' }}" data-map-name="{{ b.nome }}">{{ icon('map', 'icon-sm') }}Ver no mapa</a>
+        </div>
+      </article>
+      {% else %}
+      {% call ui.empty_state('search-x', 'Nenhuma unidade com esses filtros', 'Tente outra cidade ou outro período de funcionamento.', 'h3', compacto=True) %}
+        <a class="button button-light" href="{{ url_for('bibliotecas.bibliotecas') }}">Limpar filtros</a>
+      {% endcall %}
+      {% endfor %}
+    </div>
+
+    <aside class="map-panel" id="mapa" aria-labelledby="mapa-titulo">
+      <h2 id="mapa-titulo" class="sr-only">Mapa das unidades</h2>
+      {% if mapas_ativos and selecionada %}
+      <div class="map-frame">
+        <iframe data-map-frame title="Mapa: {{ selecionada.nome }}" src="{{ mapa_url(selecionada) }}" loading="lazy" referrerpolicy="no-referrer" allowfullscreen></iframe>
+      </div>
+      <p class="map-caption" data-map-caption>{{ icon('map-pin', 'icon-sm') }}{{ selecionada.nome }}</p>
+      {% else %}
+      <div class="map-placeholder">
+        <svg class="map-art" viewBox="0 0 320 220" aria-hidden="true">
+          <path d="M0 150 C60 120 90 170 150 140 S250 90 320 120" /><path d="M0 70 C80 90 110 40 190 60 S280 40 320 30" /><path d="M110 0 L130 220" /><path d="M230 0 L210 220" />
+          <circle cx="152" cy="98" r="9" /><circle cx="226" cy="150" r="6" /><circle cx="70" cy="60" r="6" />
+        </svg>
+        <div>
+          <strong>Mapa indisponível neste ambiente</strong>
+          <p>{% if not mapas_ativos %}A integração com o Google Maps não está configurada. Os endereços completos estão na lista ao lado.{% else %}Selecione uma unidade para vê-la no mapa.{% endif %}</p>
+        </div>
+      </div>
+      {% endif %}
+      <p class="hint">{{ icon('info', 'icon-sm') }}Horários informados pelas unidades. Confirme por telefone antes de ir.</p>
+    </aside>
+  </div>
+</section>
+{% else %}
+{% call ui.empty_state('library', 'Rede parceira em configuração', 'A organização ainda não cadastrou pontos de retirada autorizados. Enquanto isso, você pode escolher entrega em domicílio no checkout.') %}
+  <a class="button" href="{{ url_for('livros.catalogo') }}">{{ icon('book-open') }}Explorar o acervo</a>
+  <a class="button button-light" href="mailto:{{ config['BUSINESS_EMAIL'] }}?subject=Quero%20ser%20uma%20biblioteca%20parceira"{% if not config['BUSINESS_EMAIL'] %} hidden{% endif %}>{{ icon('mail') }}Quero ser parceira</a>
+{% endcall %}
+<section class="partner-cta" aria-labelledby="parceria-titulo">
+  <div>
+    <h2 id="parceria-titulo">Como uma biblioteca se torna parceira?</h2>
+    <ol>
+      <li>Entre em contato pelos canais do rodapé.</li>
+      <li>A equipe valida endereço, horários e responsáveis.</li>
+      <li>A unidade passa a receber retiradas e doações pelo site.</li>
+    </ol>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block page_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/legal.css') }}">{% endblock %}
+{% block content %}
+<div class="legal-layout">
+  <nav class="legal-toc" aria-label="Nesta página">
+    <p class="eyebrow">Nesta página</p>
+    <ol>{% block toc %}{% endblock %}</ol>
+    <p class="legal-related">{{ icon('file-text', 'icon-sm') }}<a href="{{ url_for('main.termos') }}">Termos</a> · <a href="{{ url_for('main.privacidade') }}">Privacidade</a> · <a href="{{ url_for('main.cookies') }}">Cookies</a></p>
+  </nav>
+  <article class="legal-doc">
+    {% block doc %}{% endblock %}
+  </article>
+</div>
+{% endblock %}
