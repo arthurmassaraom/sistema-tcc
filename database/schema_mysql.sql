@@ -1,21 +1,3 @@
--- =====================================================================
--- Biblioteca Aberta: estrutura completa do banco MySQL (MySQL 8+).
---
--- Este é o ÚNICO arquivo SQL do projeto. Ele cria todas as tabelas com a
--- versão atual do sistema. Não contém dados: planos, bibliotecas e o
--- acervo de exemplo são criados pelo seed.py na primeira inicialização
--- (AUTO_INIT_DATABASE=true), ou manualmente se você desligá-la.
---
--- Uso (instalação nova):
---   mysql -u root -p -e "CREATE DATABASE biblioteca_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
---   mysql -u root -p biblioteca_db < database/schema_mysql.sql
---
--- Se o banco já existe com a estrutura antiga, o sistema aplica as colunas
--- e tabelas novas sozinho quando AUTO_INIT_DATABASE=true. Não rode este
--- arquivo sobre um banco com dados: ele usa CREATE TABLE IF NOT EXISTS e
--- não altera tabelas existentes.
--- =====================================================================
-
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
