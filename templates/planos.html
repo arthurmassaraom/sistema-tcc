@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Planos de leitura{% endblock %}
+{% block page_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/planos.css') }}">{% endblock %}
+{% block content %}
+{% call ui.page_header('Planos de leitura', 'Mais histórias, no seu ritmo', 'Escolha quantos livros quer alugar ao mesmo tempo. Você pode trocar de plano quando quiser.', 'sparkles') %}
+  <p class="alert alert-warning demo-notice">{{ icon('info') }}<span><strong>Demonstração:</strong> a contratação é simulada e nenhuma cobrança é feita.</span></p>
+{% endcall %}
+
+{% if planos %}
+{%- set recomendado = planos[1].id if planos|length >= 3 else planos[-1].id -%}
+<div class="plan-grid">
+  {% for plano in planos %}
+  {%- set atual = usuario_atual and usuario_atual.plano_id == plano.id -%}
+  <article class="plan-card{% if plano.id == recomendado %} is-recommended{% endif %}{% if atual %} is-current{% endif %}" aria-labelledby="plano-{{ plano.id }}">
+    {% if plano.id == recomendado %}<span class="plan-ribbon">{{ icon('star', 'icon-sm') }}Mais escolhido</span>{% endif %}
+    <h2 id="plano-{{ plano.id }}">{{ plano.nome }}</h2>
+    <p class="plan-price">{% if plano.preco_mensal == 0 %}Grátis{% else %}{{ plano.preco_mensal|brl }}<small>/mês</small>{% endif %}</p>
+    <p class="plan-summary">{{ plano.beneficios }}</p>
+    <ul class="plan-benefits">
+      <li>{{ icon('book-open') }}Até <strong>{{ plano.limite_alugueis }}</strong> {{ 'aluguel' if plano.limite_alugueis == 1 else 'aluguéis' }} ao mesmo tempo</li>
+      <li>{{ icon('search') }}Acesso a todo o catálogo</li>
+      <li>{{ icon('library') }}Retirada grátis em bibliotecas parceiras</li>
+      <li>{{ icon('bell') }}Avisos de prazo e de títulos de volta ao estoque</li>
+      {% if plano.preco_mensal > 0 %}<li>{{ icon('sparkles') }}{{ 'Prioridade na lista de espera' if loop.last else 'Descontos em compras' }}</li>{% endif %}
+    </ul>
+    {% if atual %}
+    <p class="badge badge-success plan-current">{{ icon('circle-check') }}Seu plano atual</p>
+    {% elif usuario_atual %}
+    <form method="post" action="{{ url_for('usuarios.contratar', plano_id=plano.id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <button class="button button-block {{ 'button-accent' if plano.id == recomendado else 'button-light' }}" type="submit">Escolher {{ plano.nome }}</button>
+    </form>
+    {% else %}
+    <a class="button button-block {{ 'button-accent' if plano.id == recomendado else 'button-light' }}" href="{{ url_for('usuarios.login', next=url_for('main.planos')) }}">Entrar para escolher</a>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+
+<section class="section-block" aria-labelledby="comparativo-titulo">
+  <h2 id="comparativo-titulo">Comparativo rápido</h2>
+  <div class="table-wrap compare-table">
+    <table>
+      <caption class="sr-only">Comparação dos planos de leitura</caption>
+      <thead><tr><th scope="col">Recurso</th>{% for p in planos %}<th scope="col">{{ p.nome }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        <tr><th scope="row">Mensalidade</th>{% for p in planos %}<td>{{ 'Grátis' if p.preco_mensal == 0 else p.preco_mensal|brl }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Aluguéis simultâneos</th>{% for p in planos %}<td>{{ p.limite_alugueis }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Retirada gratuita</th>{% for p in planos %}<td>{{ icon('check', label='Incluído') }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Renovação de aluguel</th>{% for p in planos %}<td>Até 2 vezes, se houver estoque</td>{% endfor %}</tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+{% call ui.empty_state('sparkles', 'Planos em preparação', 'Os planos de assinatura ainda não foram cadastrados. Enquanto isso, você pode alugar e comprar livros avulsos.') %}
+  <a class="button" href="{{ url_for('livros.catalogo') }}">{{ icon('book-open') }}Explorar o acervo</a>
+{% endcall %}
+{% endif %}
+
+<section class="faq" aria-labelledby="faq-titulo">
+  <h2 id="faq-titulo">Perguntas frequentes</h2>
+  <details><summary>Posso mudar de plano depois?</summary><p>Sim. A troca vale imediatamente e não há fidelidade nesta demonstração.</p></details>
+  <details><summary>O que acontece se eu atrasar uma devolução?</summary><p>É cobrada multa de 10% do valor do aluguel por dia de atraso, limitada ao preço de venda do livro. Os detalhes estão nos <a href="{{ url_for('main.termos') }}#alugueis">Termos e Condições</a>.</p></details>
+  <details><summary>Preciso de plano para comprar livros?</summary><p>Não. Compras e aluguéis avulsos funcionam em qualquer plano, inclusive no gratuito.</p></details>
+</section>
+{% endblock %}

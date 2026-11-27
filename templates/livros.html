@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Acervo{% endblock %}
+{% block page_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/livros.css') }}">{% endblock %}
+{% block content %}
+{%- macro pagina_url(n) -%}{{ url_for('livros.catalogo', q=q or None, genero=genero or None, categoria=categoria or None, modalidade=modalidade or None, ordem=ordem if ordem != 'relevancia' else None, indisponiveis='1' if incluir_indisponiveis else None, pagina=n if n > 1 else None) }}{%- endmacro -%}
+{% call ui.page_header('Catálogo comunitário', 'Encontre sua próxima leitura', 'Obras para folhear, levar para casa ou compartilhar. Filtre por gênero, categoria e modalidade.', 'book-open') %}{% endcall %}
+
+<div class="catalog-layout">
+  <aside class="ui-drawer from-left filter-drawer" id="filtros" aria-labelledby="filtros-titulo" data-drawer data-drawer-media="(max-width: 1024px)">
+    <div class="ui-drawer-header">
+      <h2 id="filtros-titulo" tabindex="-1">{{ icon('sliders-horizontal', 'icon-sm') }}Filtrar acervo</h2>
+      <button class="ui-close filter-close" type="button" data-drawer-close aria-label="Fechar filtros">{{ icon('x') }}</button>
+    </div>
+    <form method="get" action="{{ url_for('livros.catalogo') }}" class="ui-drawer-body filter-form" id="form-filtros" data-catalog-form>
+      {% if ordem != 'relevancia' %}<input type="hidden" name="ordem" value="{{ ordem }}">{% endif %}
+      <label>Busca
+        <input name="q" type="search" value="{{ q }}" placeholder="Título, autor ou ISBN" enterkeyhint="search">
+      </label>
+      <label>Gênero
+        <select name="genero">
+          <option value="">Todos os gêneros</option>{% for item in generos %}
+          <option value="{{ item }}" {% if genero==item %}selected{% endif %}>{{ item }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Categoria
+        <select name="categoria">
+          <option value="">Todas as categorias</option>{% for item in categorias %}
+          <option value="{{ item }}" {% if categoria==item %}selected{% endif %}>{{ item }}</option>{% endfor %}
+        </select>
+      </label>
+      <fieldset class="segmented filter-mode">
+        <legend>Modalidade</legend>
+        <label><input type="radio" name="modalidade" value="" {% if not modalidade %}checked{% endif %}><span>Todas</span></label>
+        <label><input type="radio" name="modalidade" value="Aluguel" {% if modalidade=='Aluguel' %}checked{% endif %}><span>Aluguel</span></label>
+        <label><input type="radio" name="modalidade" value="Venda" {% if modalidade=='Venda' %}checked{% endif %}><span>Compra</span></label>
+      </fieldset>
+      <label class="checkbox-line"><input type="checkbox" name="indisponiveis" value="1" {% if incluir_indisponiveis %}checked{% endif %}> Mostrar também títulos indisponíveis</label>
+      <div class="filter-actions">
+        <button class="button button-block" type="submit">{{ icon('check', 'icon-sm') }}Aplicar filtros</button>
+      </div>
+    </form>
+  </aside>
+
+  <section class="catalog-main" aria-labelledby="resultados-titulo">
+    <div class="catalog-toolbar">
+      <div class="catalog-count">
+        <h2 id="resultados-titulo" class="catalog-count-title" aria-live="polite">{{ total }} {{ 'obra encontrada' if total == 1 else 'obras encontradas' }}</h2>
+        {% if paginas > 1 %}<span class="muted">Página {{ pagina }} de {{ paginas }}</span>{% endif %}
+      </div>
+      <div class="catalog-tools">
+        <a class="button button-light filter-toggle" href="#filtros" data-drawer-open="filtros" aria-controls="filtros" aria-expanded="false">{{ icon('sliders-horizontal', 'icon-sm') }}Filtros{% if filtros_ativos %}<span class="filter-count">{{ filtros_ativos|length }}</span>{% endif %}</a>
+        {% if filtros_ativos %}<a class="button button-ghost button-small clear-filters" href="{{ url_for('livros.catalogo') }}">{{ icon('x', 'icon-sm') }}Limpar filtros</a>{% endif %}
+        <form method="get" action="{{ url_for('livros.catalogo') }}" class="sort-form" data-autosubmit data-catalog-form>
+          {% for chave, valor in [('q', q), ('genero', genero), ('categoria', categoria), ('modalidade', modalidade)] if valor %}<input type="hidden" name="{{ chave }}" value="{{ valor }}">{% endfor %}
+          {% if incluir_indisponiveis %}<input type="hidden" name="indisponiveis" value="1">{% endif %}
+          <label class="sort-label">{{ icon('arrow-up-down', 'icon-sm') }}<span class="sr-only">Ordenar por</span>
+            <select name="ordem" aria-label="Ordenar por">
+              {% for chave, rotulo in ordenacoes.items() %}<option value="{{ chave }}" {% if ordem == chave %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+            </select>
+          </label>
+          <noscript><button class="button button-small" type="submit">Ordenar</button></noscript>
+        </form>
+      </div>
+    </div>
+
+    {% if filtros_ativos %}
+    <ul class="active-filters" aria-label="Filtros ativos">
+      {% for rotulo, chave in filtros_ativos %}
+      <li><a class="chip" href="{{ url_for('livros.catalogo', **(request.args.to_dict()|dict_without(chave, 'pagina'))) }}" aria-label="Remover filtro {{ rotulo }}">{{ rotulo }}{{ icon('x', 'icon-sm') }}</a></li>
+      {% endfor %}
+      <li><a class="text-link" href="{{ url_for('livros.catalogo') }}">Limpar tudo</a></li>
+    </ul>
+    {% endif %}
+
+    {% if isbn_busca and not livros %}
+    <div class="alert alert-info">{{ icon('info') }}<p>Procuramos pelo ISBN <strong>{{ isbn_busca }}</strong> com e sem hífens. Confira os dígitos ou tente buscar pelo título.</p></div>
+    {% endif %}
+
+    <div class="book-grid catalog-grid" data-catalog-results>
+      {% for livro in livros %}{{ ui.book_card(livro) }}{% endfor %}
+    </div>
+    <template id="catalog-skeleton">{{ ui.skeleton_cards(8) }}</template>
+
+    {% if not livros %}
+    {% call ui.empty_state('search-x', 'Nenhuma obra encontrada', 'Tente remover algum filtro, buscar por outro termo ou incluir títulos indisponíveis — você pode pedir para ser avisado quando voltarem.') %}
+      <a class="button" href="{{ url_for('livros.catalogo') }}">{{ icon('refresh-cw') }}Ver todo o acervo</a>
+      {% if not incluir_indisponiveis %}<a class="button button-light" href="{{ url_for('livros.catalogo', q=q or None, genero=genero or None, categoria=categoria or None, modalidade=modalidade or None, indisponiveis='1') }}">Incluir indisponíveis</a>{% endif %}
+    {% endcall %}
+    {% if sugestoes %}
+    <section class="section-block" aria-labelledby="sugestoes-acervo">
+      <h2 id="sugestoes-acervo" class="section-subtitle">Enquanto isso, que tal uma destas?</h2>
+      <div class="book-grid">{% for livro in sugestoes %}{{ ui.book_card(livro) }}{% endfor %}</div>
+    </section>
+    {% endif %}
+    {% endif %}
+
+    {% if paginas > 1 %}
+    <nav class="pagination" aria-label="Paginação do acervo">
+      {% if pagina > 1 %}<a class="button button-light button-small" href="{{ pagina_url(pagina - 1) }}" rel="prev">{{ icon('chevron-left', 'icon-sm') }}Anterior</a>{% else %}<span class="button button-light button-small" aria-disabled="true">{{ icon('chevron-left', 'icon-sm') }}Anterior</span>{% endif %}
+      <ol>
+        {% for n in range(1, paginas + 1) %}
+        {% if n == 1 or n == paginas or (n - pagina)|abs <= 1 %}
+        <li>{% if n == pagina %}<span class="page-link is-current" aria-current="page">{{ n }}</span>{% else %}<a class="page-link" href="{{ pagina_url(n) }}" aria-label="Página {{ n }}">{{ n }}</a>{% endif %}</li>
+        {% elif n == 2 or n == paginas - 1 %}<li aria-hidden="true">…</li>{% endif %}
+        {% endfor %}
+      </ol>
+      {% if pagina < paginas %}<a class="button button-light button-small" href="{{ pagina_url(pagina + 1) }}" rel="next">Próxima{{ icon('chevron-right', 'icon-sm') }}</a>{% else %}<span class="button button-light button-small" aria-disabled="true">Próxima{{ icon('chevron-right', 'icon-sm') }}</span>{% endif %}
+    </nav>
+    {% endif %}
+  </section>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const results = document.querySelector('[data-catalog-results]');
+  const skeleton = document.getElementById('catalog-skeleton');
+  document.querySelectorAll('[data-catalog-form]').forEach((form) => form.addEventListener('submit', () => {
+    if (!results || !skeleton) return;
+    results.setAttribute('aria-busy', 'true');
+    results.replaceChildren(skeleton.content.cloneNode(true));
+    window.scrollTo({ top: results.getBoundingClientRect().top + window.scrollY - 140, behavior: 'smooth' });
+  }));
+});
+</script>
+{% endblock %}

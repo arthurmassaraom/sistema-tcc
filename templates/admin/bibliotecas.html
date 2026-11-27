@@ -1,0 +1,62 @@
+{% extends 'admin_base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Unidades parceiras{% endblock %}
+{% block content %}
+{%- macro campos(b=None) -%}
+<label>Nome da unidade *<input name="nome" required maxlength="160" value="{{ b.nome if b else '' }}" placeholder="Nome oficial da biblioteca"></label>
+<label>CEP *<input name="cep" required maxlength="9" data-mask="cep" inputmode="numeric" value="{{ b.cep if b else '' }}" placeholder="00000-000"></label>
+<label class="full-width">Endereço *<input name="endereco" required maxlength="200" value="{{ b.endereco if b else '' }}" placeholder="Rua, avenida e número"></label>
+<label>Cidade *<input name="cidade" required maxlength="100" value="{{ b.cidade if b else '' }}" placeholder="Nome da cidade"></label>
+<label>Estado (UF) *<input name="estado" required maxlength="2" pattern="[A-Za-z]{2}" value="{{ b.estado if b else '' }}" placeholder="SP"></label>
+<label>Telefone de contato<input name="telefone" type="tel" maxlength="30" data-mask="phone" inputmode="tel" value="{{ b.telefone if b and b.telefone else '' }}" placeholder="(11) 3333-4444"></label>
+<label>Dias de funcionamento<input name="dias_funcionamento" maxlength="80" value="{{ b.dias_funcionamento if b and b.dias_funcionamento else '' }}" placeholder="Seg a sex"></label>
+<label>Abre às<input name="horario_abertura" type="time" value="{{ b.horario_abertura if b and b.horario_abertura else '' }}"></label>
+<label>Fecha às<input name="horario_fechamento" type="time" value="{{ b.horario_fechamento if b and b.horario_fechamento else '' }}"></label>
+{%- endmacro -%}
+<header class="admin-title">
+  <div>
+    <p class="eyebrow">Rede de atendimento</p>
+    <h1>Unidades parceiras</h1>
+  </div>
+  <span class="badge badge-primary">{{ bibliotecas|length }} {{ 'unidade' if bibliotecas|length == 1 else 'unidades' }}</span>
+</header>
+<p class="admin-help alert alert-info">{{ icon('info') }}<span>Cadastre somente pontos autorizados pela organização. Essas informações aparecem na busca pública por CEP, no mapa de unidades e na opção de retirada.</span></p>
+
+<details class="panel admin-library-create" {% if not bibliotecas %}open{% endif %}>
+  <summary><h2>{{ icon('plus', 'icon-sm') }}Cadastrar uma unidade</h2></summary>
+  <form method="post" action="{{ url_for('admin.bibliotecas') }}" class="form-grid" novalidate data-validate>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    {{ campos() }}
+    <div class="full-width"><button class="button" type="submit">Cadastrar unidade</button></div>
+  </form>
+</details>
+
+<section class="admin-library-list" aria-labelledby="lista-unidades">
+  <h2 id="lista-unidades" class="sr-only">Unidades cadastradas</h2>
+  {% for b in bibliotecas %}
+  <article class="panel admin-library-card">
+    <header>
+      <div>
+        <p class="eyebrow">{{ b.estado }} · {{ b.cidade }}</p>
+        <h3>{{ b.nome }}</h3>
+        <p class="muted">{{ b.endereco }} · CEP {{ b.cep }}{% if b.horario %} · {{ b.horario }}{% endif %}</p>
+      </div>
+      <form method="post" action="{{ url_for('admin.excluir_biblioteca',biblioteca_id=b.id) }}" data-confirm="Excluir “{{ b.nome }}”? Unidades com pedidos no histórico não podem ser excluídas.">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <button class="button button-danger button-small" type="submit">{{ icon('trash-2', 'icon-sm') }}Excluir</button>
+      </form>
+    </header>
+    <details>
+      <summary>{{ icon('pencil', 'icon-sm') }}Editar dados</summary>
+      <form method="post" action="{{ url_for('admin.editar_biblioteca',biblioteca_id=b.id) }}" class="form-grid" novalidate data-validate>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        {{ campos(b) }}
+        <div class="full-width admin-actions"><button class="button button-small" type="submit">Salvar alterações</button></div>
+      </form>
+    </details>
+  </article>
+  {% else %}
+  {% call ui.empty_state('map-pin', 'Nenhuma unidade cadastrada', 'Cadastre os pontos de retirada autorizados pela organização. Nenhuma parceria é publicada automaticamente.') %}{% endcall %}
+  {% endfor %}
+</section>
+{% endblock %}

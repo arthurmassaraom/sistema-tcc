@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#102B23">
+    <meta name="robots" content="noindex">
+    <title>{% block title %}Administração{% endblock %} | Biblioteca Aberta</title>
+    {% for css in ['css/global.css','css/components.css','css/pages/admin.css'] %}
+    <link rel="stylesheet" href="{{ url_for('static', filename=css) }}">
+    {% endfor %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/print.css') }}" media="print">
+    <script defer src="{{ url_for('static',filename='js/main.js') }}"></script>
+    <script defer src="{{ url_for('static',filename='js/ui.js') }}"></script>
+    <script defer src="{{ url_for('static',filename='js/validacao.js') }}"></script>
+  </head>
+  {%- set endpoint = request.endpoint or '' -%}
+  <body class="admin-shell" data-sprite="{{ url_for('static', filename='icons/sprite.svg') }}">
+    <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+    <header class="admin-header">
+      <div class="admin-header-bar">
+        <a class="admin-brand" href="{{ url_for('admin.dashboard') }}">
+          <span class="admin-brand-mark" aria-hidden="true">{{ icon('library') }}</span>
+          <span>Biblioteca Aberta<small>Administração</small></span>
+        </a>
+        <div class="admin-user">
+          {% if usuario_atual %}{{ avatar(usuario_atual) }}<span class="admin-user-name">{{ usuario_atual.nome }}</span>{% endif %}
+          <form method="post" action="{{ url_for('usuarios.logout') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="admin-logout">{{ icon('log-out', 'icon-sm') }}<span>Sair</span></button>
+          </form>
+        </div>
+      </div>
+      <nav class="admin-nav" aria-label="Navegação administrativa">
+        {% for ep, rotulo, ic, grupo in [
+          ('admin.dashboard', 'Visão geral', 'layout-dashboard', ('admin.dashboard',)),
+          ('admin.livros', 'Acervo', 'book-open', ('admin.livros', 'admin.novo_livro', 'admin.editar_livro')),
+          ('admin.bibliotecas', 'Unidades parceiras', 'map-pin', ('admin.bibliotecas',)),
+          ('admin.transacoes', 'Clientes e pedidos', 'receipt', ('admin.transacoes',)),
+          ('admin.curadoria', 'Curadoria', 'gift', ('admin.curadoria',)),
+        ] %}
+        <a href="{{ url_for(ep) }}"{% if endpoint in grupo %} aria-current="page"{% endif %}>{{ icon(ic, 'icon-sm') }}{{ rotulo }}</a>
+        {% endfor %}
+      </nav>
+    </header>
+    <main class="admin-content" id="conteudo" tabindex="-1">
+      {% with mensagens=get_flashed_messages(with_categories=true) %}{% if mensagens %}
+      <div class="flash-list" aria-live="polite">
+        {% for categoria,mensagem in mensagens %}
+        <div class="flash {{ categoria }}" role="{{ 'alert' if categoria == 'erro' else 'status' }}">
+          {{ icon('circle-alert' if categoria == 'erro' else 'circle-check' if categoria == 'sucesso' else 'info') }}
+          <span class="flash-text">{{ mensagem }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}{% endwith %}{% block content %}{% endblock %}
+    </main>
+    <div class="toast-region" id="toast-region" aria-live="polite"></div>
+  </body>
+</html>

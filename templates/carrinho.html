@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Minha sacola{% endblock %}
+{% block content %}
+{{ ui.steps('sacola') }}
+{% call ui.page_header('Sua seleção', 'Minha sacola', 'Revise modalidades, quantidades e valores antes de seguir para a entrega.', 'shopping-bag') %}{% endcall %}
+
+{% if rows %}
+<div class="cart-layout">
+  <section class="cart-lines" aria-labelledby="itens-titulo">
+    <h2 id="itens-titulo" class="sr-only">Itens da sacola</h2>
+    <ul class="cart-page-items">
+      {% for row in rows %}
+      <li class="cart-line">
+        <a class="cart-line-cover" href="{{ url_for('livros.detalhes', livro_id=row.livro.id) }}" tabindex="-1" aria-hidden="true">{{ ui.cover(row.livro, 'book-cover') }}</a>
+        <div class="cart-line-info">
+          {% if row.tipo == 'aluguel' %}
+          <span class="badge badge-info">{{ icon('clock') }}Aluguel · {{ row.dias }} dias</span>
+          {% else %}
+          <span class="badge badge-accent">{{ icon('bookmark') }}Compra</span>
+          {% endif %}
+          <h3><a href="{{ url_for('livros.detalhes', livro_id=row.livro.id) }}">{{ row.livro.titulo }}</a></h3>
+          <p class="muted">{{ row.livro.autor }} · {{ row.unitario|brl }} por unidade</p>
+        </div>
+        <div class="cart-line-actions">
+          <form method="post" action="{{ url_for('carrinho.atualizar') }}" class="cart-qty-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="key" value="{{ row.key }}">
+            <label for="q{{ loop.index }}">Quantidade</label>
+            <div class="cart-qty-row">
+              <input id="q{{ loop.index }}" name="quantidade" type="number" inputmode="numeric" min="0" max="{{ row.livro.estoque }}" value="{{ row.quantidade }}" required>
+              <button class="button button-light button-small" type="submit">{{ icon('refresh-cw', 'icon-sm') }}Atualizar</button>
+            </div>
+          </form>
+          <form method="post" action="{{ url_for('carrinho.remover') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="key" value="{{ row.key }}">
+            <button class="button button-ghost button-small cart-remove" type="submit">{{ icon('trash-2', 'icon-sm') }}Remover</button>
+          </form>
+          <p class="cart-line-subtotal"><span>Subtotal</span><strong>{{ row.subtotal|brl }}</strong></p>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    <a class="text-link" href="{{ url_for('livros.catalogo') }}">{{ icon('arrow-left', 'icon-sm') }}Continuar escolhendo livros</a>
+  </section>
+
+  <aside class="panel order-summary" aria-labelledby="resumo-titulo">
+    <p class="eyebrow">Resumo do pedido</p>
+    <h2 id="resumo-titulo">Seu pedido</h2>
+    <form method="post" action="{{ url_for('carrinho.escolher_entrega') }}" class="delivery-choice" data-autosubmit>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <fieldset class="segmented">
+        <legend>Como você quer receber?</legend>
+        <label><input type="radio" name="modo" value="domicilio" {% if entrega == 'domicilio' %}checked{% endif %}><span>{{ icon('truck', 'icon-sm') }}Entrega <small>+{{ frete_domicilio|brl }}</small></span></label>
+        <label><input type="radio" name="modo" value="retirada" {% if entrega == 'retirada' %}checked{% endif %}><span>{{ icon('library', 'icon-sm') }}Retirada <small>grátis</small></span></label>
+      </fieldset>
+      <noscript><button class="button button-light button-small" type="submit">Aplicar</button></noscript>
+    </form>
+    <dl class="cart-totals">
+      <div><dt>Itens ({{ rows|sum(attribute='quantidade') }})</dt><dd>{{ subtotal|brl }}</dd></div>
+      <div><dt>Entrega</dt><dd>{{ frete|brl if frete else 'Grátis' }}</dd></div>
+      <div class="cart-totals-total"><dt>Total</dt><dd>{{ total|brl }}</dd></div>
+    </dl>
+    <a class="button button-accent button-block button-large" href="{{ url_for('carrinho.checkout') }}">Continuar para o checkout{{ icon('arrow-right') }}</a>
+    <ul class="summary-perks">
+      <li>{{ icon('shield-check', 'icon-sm') }}Pagamento em modo de demonstração: nenhuma cobrança real.</li>
+      <li>{{ icon('rotate-ccw', 'icon-sm') }}Compras online têm 7 dias para arrependimento.</li>
+      <li>{{ icon('library', 'icon-sm') }}Retirada gratuita em bibliotecas parceiras.</li>
+    </ul>
+  </aside>
+</div>
+{% else %}
+{% call ui.empty_state('shopping-bag', 'Sua sacola está esperando uma história', 'Adicione um livro para alugar ou comprar. Ele fica guardado aqui enquanto você navega, mesmo antes de entrar na conta.') %}
+  <a class="button" href="{{ url_for('livros.catalogo') }}">{{ icon('book-open') }}Explorar o acervo</a>
+  <a class="button button-light" href="{{ url_for('main.planos') }}">{{ icon('sparkles') }}Conhecer os planos</a>
+{% endcall %}
+{% endif %}
+
+{% if sugestoes %}
+<section class="section-block" aria-labelledby="sugestoes-titulo">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">{{ 'Para completar' if rows else 'Sugestões do acervo' }}</p>
+      <h2 id="sugestoes-titulo">{{ 'Combina com a sua seleção' if rows else 'Comece por uma destas leituras' }}</h2>
+    </div>
+    <a class="text-link" href="{{ url_for('livros.catalogo') }}">Ver todo o acervo{{ icon('arrow-right', 'icon-sm') }}</a>
+  </div>
+  <div class="book-grid">
+    {% for livro in sugestoes %}{{ ui.book_card(livro) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="info-strip" aria-label="Como funciona a sacola">
+  <div>{{ icon('clock', 'icon-lg') }}<p><strong>Aluguel de 7, 14 ou 30 dias</strong>Escolha o prazo na página do livro e renove quando houver estoque.</p></div>
+  <div>{{ icon('truck', 'icon-lg') }}<p><strong>Entrega por {{ frete_domicilio|brl }}</strong>Ou retire gratuitamente em uma biblioteca parceira.</p></div>
+  <div>{{ icon('shield-check', 'icon-lg') }}<p><strong>Pagamento demonstrativo</strong>Pix e cartão simulados, sem cobrança real.</p></div>
+</section>
+{% endblock %}

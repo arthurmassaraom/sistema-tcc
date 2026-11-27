@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Transparência das doações{% endblock %}
+{% block page_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/doe.css') }}">{% endblock %}
+{% block content %}
+{% call ui.page_header('Prestação de contas', 'Transparência das doações', 'Números reais da curadoria e os livros que a comunidade colocou para circular. Nenhum doador é identificado.', 'chart-column') %}{% endcall %}
+
+<dl class="transparency-stats">
+  <div><dt>Submissões recebidas</dt><dd>{{ impacto.recebidas }}</dd></div>
+  <div class="is-success"><dt>Aprovadas e incorporadas</dt><dd>{{ impacto.aprovadas }}</dd></div>
+  <div class="is-warning"><dt>Em análise</dt><dd>{{ impacto.em_analise }}</dd></div>
+  <div class="is-danger"><dt>Recusadas com justificativa</dt><dd>{{ impacto.recusadas }}</dd></div>
+</dl>
+
+{% if impacto.recebidas %}
+<div class="transparency-grid">
+  <section class="panel" aria-labelledby="conservacao-titulo">
+    <h2 id="conservacao-titulo">Estado de conservação</h2>
+    <ul class="bar-chart">
+      {% for c in conservacoes %}
+      {% set n = por_conservacao.get(c, 0) %}
+      <li>
+        <span>{{ c }}</span>
+        <span class="bar" style="--valor: {{ (100 * n / impacto.recebidas)|round(1) }}%"><span></span></span>
+        <strong>{{ n }}</strong>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  <section class="panel" aria-labelledby="unidades-titulo">
+    <h2 id="unidades-titulo">Unidades que mais receberam</h2>
+    <ol class="rank-list">
+      {% for nome, n in por_unidade %}<li><span>{{ nome }}</span><strong>{{ n }}</strong></li>{% endfor %}
+    </ol>
+  </section>
+</div>
+
+<section class="section-block" aria-labelledby="recebidos-titulo">
+  <div class="section-heading">
+    <div><p class="eyebrow">Ações realizadas</p><h2 id="recebidos-titulo">Livros recebidos e aprovados</h2></div>
+  </div>
+  {% if aprovadas %}
+  <ul class="received-list">
+    {% for d in aprovadas %}
+    <li>
+      {{ icon('book', 'icon-lg') }}
+      <div><strong>{{ d.titulo }}</strong><span>{{ d.autor }} · {{ d.conservacao }} · {{ d.criada_em|data_br }}</span></div>
+      {% if no_acervo.get(d.titulo) %}<a class="badge badge-success" href="{{ url_for('livros.detalhes', livro_id=no_acervo[d.titulo].id) }}">{{ icon('check') }}No acervo</a>{% else %}<span class="badge">Incorporado</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  {% call ui.empty_state('inbox', 'Nenhuma doação aprovada até agora', 'As submissões ainda estão em análise. Assim que forem aprovadas, aparecem aqui.', 'h3', compacto=True) %}{% endcall %}
+  {% endif %}
+</section>
+{% else %}
+{% call ui.empty_state('hand-heart', 'A primeira doação pode ser a sua', 'Ainda não recebemos submissões. Quando chegarem, os números e os livros aprovados aparecem nesta página.') %}
+  <a class="button button-accent" href="{{ url_for('doacoes.doe') }}">{{ icon('gift') }}Doar um livro</a>
+{% endcall %}
+{% endif %}
+{% endblock %}

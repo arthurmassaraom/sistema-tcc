@@ -1,0 +1,128 @@
+{# =====================================================================
+   Macros de interface reutilizáveis.
+   Uso: {% import 'macros/ui.html' as ui with context %}
+   ===================================================================== #}
+
+{% macro empty_state(icone, titulo, texto, nivel='h2', compacto=False, erro=False) -%}
+<div class="empty-state{% if compacto %} is-compact{% endif %}{% if erro %} is-error{% endif %}"{% if erro %} role="alert"{% endif %}>
+  <span class="empty-state-icon">{{ icon(icone) }}</span>
+  <{{ nivel }}>{{ titulo }}</{{ nivel }}>
+  {% if texto %}<p>{{ texto }}</p>{% endif %}
+  {% if caller %}<div class="button-row">{{ caller() }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro stars(media, total=0, tamanho='') -%}
+{%- set cheias = (media or 0)|round|int -%}
+<span class="stars {{ tamanho }}" role="img" aria-label="{{ '%.1f'|format(media or 0) }} de 5 estrelas">
+  {%- for i in range(1, 6) -%}<span class="star{% if i <= cheias %} is-on{% endif %}" aria-hidden="true">★</span>{%- endfor -%}
+</span>
+{%- endmacro %}
+
+{% macro rating(livro) -%}
+{% if livro.total_avaliacoes %}
+<p class="rating">{{ stars(livro.media_avaliacao) }}<strong>{{ '%.1f'|format(livro.media_avaliacao) }}</strong><small>({{ livro.total_avaliacoes }} {{ 'avaliação' if livro.total_avaliacoes == 1 else 'avaliações' }})</small></p>
+{% else %}
+<p class="rating rating-empty">{{ icon('star', 'icon-sm') }}Sem avaliações ainda</p>
+{% endif %}
+{%- endmacro %}
+
+{% macro cover(livro, classe='book-cover', lazy=True, tamanho='') -%}
+<span class="{{ classe }}">
+  {%- if livro.capa_arquivo -%}
+  <img src="{{ url_for('static', filename='images/' ~ livro.capa_arquivo) }}" alt="Capa de {{ livro.titulo }}" width="400" height="600"{% if lazy %} loading="lazy"{% endif %} decoding="async">
+  {%- else -%}
+  <span class="cover-fallback" aria-label="Capa ilustrativa de {{ livro.titulo }}"><strong>{{ livro.titulo }}</strong><small>{{ livro.autor }}</small></span>
+  {%- endif -%}
+</span>
+{%- endmacro %}
+
+{% macro add_form(livro, compacto=True, botao='Adicionar à sacola') -%}
+{%- set aluga = livro.modalidade in ['Aluguel','Ambos'] -%}
+{%- set vende = livro.modalidade in ['Venda','Ambos'] -%}
+<form method="post" action="{{ url_for('carrinho.adicionar') }}" class="add-form{% if compacto %} is-compact{% endif %}" data-add-to-cart>
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="livro_id" value="{{ livro.id }}">
+  <input type="hidden" name="quantidade" value="1">
+  {% if aluga and vende %}
+  <select name="tipo" aria-label="Modalidade para {{ livro.titulo }}" data-tipo-select>
+    <option value="aluguel">Alugar · {{ livro.preco_aluguel|brl }}</option>
+    <option value="compra">Comprar · {{ livro.preco_venda|brl }}</option>
+  </select>
+  {% else %}
+  <input type="hidden" name="tipo" value="{{ 'aluguel' if aluga else 'compra' }}">
+  <p class="add-form-price">{{ (livro.preco_aluguel if aluga else livro.preco_venda)|brl }}<small>{{ ' · aluguel de 14 dias' if aluga else ' · compra' }}</small></p>
+  {% endif %}
+  {% if aluga %}<input type="hidden" name="dias" value="14">{% endif %}
+  <button class="button button-small button-block" type="submit">{{ icon('shopping-bag', 'icon-sm') }}{{ botao }}</button>
+</form>
+{%- endmacro %}
+
+{% macro book_card(livro, acoes=True) -%}
+<article class="book-card card-interactive">
+  <a class="book-card-cover" href="{{ url_for('livros.detalhes', livro_id=livro.id) }}" tabindex="-1" aria-hidden="true">
+    {{ cover(livro, 'book-cover') }}
+    {% if livro.estoque <= 0 %}<span class="badge badge-warning book-card-flag">Indisponível</span>
+    {% elif livro.estoque <= 2 %}<span class="badge badge-accent book-card-flag">Últimas unidades</span>{% endif %}
+  </a>
+  <div class="book-card-body">
+    <p class="eyebrow">{{ livro.genero }}</p>
+    <h3 class="book-card-title"><a href="{{ url_for('livros.detalhes', livro_id=livro.id) }}">{{ livro.titulo }}</a></h3>
+    <p class="book-card-author">{{ livro.autor }}{% if livro.ano %} · {{ livro.ano }}{% endif %}</p>
+    {{ rating(livro) }}
+  </div>
+  {% if acoes %}
+  <div class="book-card-actions">
+    {% if livro.estoque > 0 %}{{ add_form(livro) }}{% else %}<a class="button button-light button-small button-block" href="{{ url_for('livros.detalhes', livro_id=livro.id) }}">{{ icon('bell', 'icon-sm') }}Avise-me</a>{% endif %}
+  </div>
+  {% endif %}
+</article>
+{%- endmacro %}
+
+{% macro skeleton_cards(n=4) -%}
+{% for _ in range(n) %}
+<div class="book-card is-skeleton" aria-hidden="true">
+  <span class="book-cover skeleton"></span>
+  <div class="book-card-body"><span class="skeleton skeleton-text is-short"></span><span class="skeleton skeleton-text"></span><span class="skeleton skeleton-text is-short"></span></div>
+</div>
+{% endfor %}
+{%- endmacro %}
+
+{% macro status_badge(status) -%}
+{%- set info = status_pedido(status) -%}
+<span class="badge{% if info[1] %} badge-{{ info[1] }}{% endif %}">{{ icon(info[2]) }}{{ info[0] }}</span>
+{%- endmacro %}
+
+{% macro field(name, label, value='', type='text', erro=None, dica=None, id=None, attrs='') -%}
+{%- set fid = id or ('campo-' ~ name) -%}
+<div class="field{% if erro %} has-error{% endif %}">
+  <label for="{{ fid }}">{{ label }}</label>
+  <input id="{{ fid }}" name="{{ name }}" type="{{ type }}" value="{{ value if value is not none else '' }}"{% if erro %} aria-invalid="true"{% endif %} aria-describedby="{{ fid }}-dica {{ fid }}-erro" {{ attrs|safe }}>
+  {% if dica %}<p class="hint" id="{{ fid }}-dica">{{ dica }}</p>{% endif %}
+  <p class="field-error" id="{{ fid }}-erro" {% if not erro %}hidden{% endif %}>{{ icon('circle-alert', 'icon-sm') }}<span>{{ erro or '' }}</span></p>
+</div>
+{%- endmacro %}
+
+{% macro steps(atual) -%}
+{%- set etapas = [('sacola','Sacola','shopping-bag'),('entrega','Entrega','truck'),('revisao','Revisão e pagamento','credit-card'),('confirmacao','Confirmação','circle-check')] -%}
+{%- set ns = namespace(passou=True) -%}
+<ol class="checkout-steps" aria-label="Etapas do pedido">
+  {% for chave, rotulo, ic in etapas %}
+  {%- set estado = 'is-current' if chave == atual else ('is-done' if ns.passou else '') -%}
+  {%- if chave == atual %}{% set ns.passou = False %}{% endif -%}
+  <li class="{{ estado }}"{% if chave == atual %} aria-current="step"{% endif %}>
+    <span class="step-dot">{{ icon('check' if estado == 'is-done' else ic, 'icon-sm') }}</span>
+    <span class="step-label">{{ rotulo }}</span>
+  </li>
+  {% endfor %}
+</ol>
+{%- endmacro %}
+
+{% macro page_header(eyebrow, titulo, texto=None, icone=None) -%}
+<header class="page-intro">
+  <p class="eyebrow">{% if icone %}{{ icon(icone, 'icon-sm') }}{% endif %}{{ eyebrow }}</p>
+  <h1>{{ titulo }}</h1>
+  {% if texto %}<p>{{ texto }}</p>{% endif %}
+  {% if caller %}{{ caller() }}{% endif %}
+</header>
+{%- endmacro %}

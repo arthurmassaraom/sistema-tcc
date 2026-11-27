@@ -1,0 +1,65 @@
+{% extends 'admin_base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Gestão do acervo{% endblock %}
+{% block content %}
+<header class="admin-title">
+  <div>
+    <p class="eyebrow">Acervo</p>
+    <h1>Gestão de livros</h1>
+    <p class="muted">{{ livros|length }} de {{ total }} {{ 'título' if total == 1 else 'títulos' }}</p>
+  </div>
+  <a class="button" href="{{ url_for('admin.novo_livro') }}">{{ icon('plus', 'icon-sm') }}Cadastrar livro</a>
+</header>
+
+<form method="get" class="admin-filters" role="search" data-autosubmit>
+  <label class="admin-search">{{ icon('search', 'icon-sm') }}<span class="sr-only">Buscar</span><input type="search" name="q" value="{{ q }}" placeholder="Buscar por título, autor ou ISBN"></label>
+  <label>Situação
+    <select name="situacao">
+      <option value="">Todas</option>
+      <option value="ativos" {% if situacao == 'ativos' %}selected{% endif %}>Ativos</option>
+      <option value="inativos" {% if situacao == 'inativos' %}selected{% endif %}>Desativados</option>
+      <option value="sem_estoque" {% if situacao == 'sem_estoque' %}selected{% endif %}>Ativos sem estoque</option>
+    </select>
+  </label>
+  <button class="button button-light" type="submit">Filtrar</button>
+</form>
+
+{% if livros %}
+<div class="table-wrap responsive-table">
+  <table>
+    <caption class="sr-only">Livros do acervo</caption>
+    <thead><tr><th scope="col">Livro</th><th scope="col">Gênero / modalidade</th><th scope="col">Estoque</th><th scope="col">Preços</th><th scope="col">Status</th><th scope="col">Ações</th></tr></thead>
+    <tbody>
+      {% for l in livros %}
+      <tr>
+        <td data-label="Livro"><div class="cell-book">{{ ui.cover(l, 'book-cover table-cover') }}<span><strong>{{ l.titulo }}</strong><small class="muted">{{ l.autor }} · {{ l.isbn or 'Sem ISBN' }}</small></span></div></td>
+        <td data-label="Gênero">{{ l.genero }}<br><small class="muted">{{ l.modalidade }}</small></td>
+        <td data-label="Estoque">{% if l.estoque <= 0 %}<span class="badge badge-warning">0</span>{% elif l.estoque <= 2 %}<span class="badge badge-accent">{{ l.estoque }}</span>{% else %}{{ l.estoque }}{% endif %}</td>
+        <td data-label="Preços">Venda {{ l.preco_venda|brl }}<br>Aluguel {{ l.preco_aluguel|brl }}</td>
+        <td data-label="Status">{% if l.ativo %}<span class="badge badge-success">Ativo</span>{% else %}<span class="badge">Desativado</span>{% endif %}</td>
+        <td data-label="Ações">
+          <div class="admin-actions">
+            <a class="button button-light button-small" href="{{ url_for('admin.editar_livro',livro_id=l.id) }}">{{ icon('pencil', 'icon-sm') }}Editar</a>{% if l.ativo %}
+            <form method="post" action="{{ url_for('admin.desativar_livro',livro_id=l.id) }}" data-confirm="Desativar “{{ l.titulo }}”? Ele sai do catálogo público, mas o histórico é mantido.">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <button class="button button-danger button-small" type="submit">Desativar</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif total %}
+{% call ui.empty_state('search-x', 'Nenhum livro com esses filtros', 'Ajuste a busca ou limpe os filtros para ver todo o acervo.') %}
+  <a class="button button-light" href="{{ url_for('admin.livros') }}">Limpar filtros</a>
+{% endcall %}
+{% else %}
+{% call ui.empty_state('book-open', 'Nenhum livro cadastrado', 'Comece cadastrando a primeira obra do acervo ou aprove doações na curadoria.') %}
+  <a class="button" href="{{ url_for('admin.novo_livro') }}">{{ icon('plus') }}Cadastrar livro</a>
+  <a class="button button-light" href="{{ url_for('admin.curadoria') }}">Abrir curadoria</a>
+{% endcall %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Doe um livro{% endblock %}
+{% block page_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/doe.css') }}">{% endblock %}
+{% block content %}
+{% call ui.page_header('Circule histórias', 'Doe uma próxima leitura', 'Envie os dados da obra. A curadoria avalia cada submissão antes de incorporá-la ao acervo comunitário.', 'hand-heart') %}{% endcall %}
+
+<ol class="donation-steps" aria-label="Como funciona a doação">
+  <li>{{ icon('file-text') }}<div><strong>1. Cadastre a obra</strong><span>Título, autor e estado de conservação.</span></div></li>
+  <li>{{ icon('badge-check') }}<div><strong>2. Curadoria avalia</strong><span>A equipe confere se a obra cabe no acervo.</span></div></li>
+  <li>{{ icon('library') }}<div><strong>3. Entregue na unidade</strong><span>Leve o livro à biblioteca parceira escolhida.</span></div></li>
+  <li>{{ icon('book-heart') }}<div><strong>4. A história circula</strong><span>Aprovada, a obra entra no catálogo para aluguel.</span></div></li>
+</ol>
+
+{% if enviada %}
+<section class="panel donation-confirm" id="confirmacao" tabindex="-1" aria-labelledby="confirmacao-titulo">
+  <span class="donation-confirm-icon">{{ icon('circle-check', 'icon-xl') }}</span>
+  <div>
+    <p class="eyebrow">Submissão #{{ enviada.id }} recebida</p>
+    <h2 id="confirmacao-titulo">Obrigado! “{{ enviada.titulo }}” está na fila da curadoria.</h2>
+    <p>Próximos passos: aguarde a análise (o status aparece em “Minhas submissões”) e, se aprovada, entregue o livro em <strong>{{ enviada.biblioteca_entrega }}</strong>.</p>
+    <div class="button-row">
+      <a class="button" href="{{ url_for('doacoes.doe') }}#nova-doacao">{{ icon('plus') }}Doar outro livro</a>
+      <a class="button button-light" href="{{ url_for('doacoes.transparencia') }}">Ver transparência das doações</a>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<div class="donation-layout">
+  <section class="panel" id="nova-doacao" aria-labelledby="form-doacao-titulo">
+    <p class="eyebrow">Nova submissão</p>
+    <h2 id="form-doacao-titulo">Dados do livro</h2>
+    {% if not usuario_atual %}
+    {% call ui.empty_state('log-in', 'Entre para registrar sua doação', 'Precisamos saber quem doou para avisar sobre a análise e combinar a entrega. Seus dados não aparecem na página de transparência.', 'h3', compacto=True) %}
+      <a class="button" href="{{ url_for('usuarios.login', next=url_for('doacoes.doe')) }}">{{ icon('log-in') }}Entrar</a>
+      <a class="button button-light" href="{{ url_for('usuarios.login') }}#cadastro">Criar conta</a>
+    {% endcall %}
+    {% elif not bibliotecas %}
+    {% call ui.empty_state('library', 'Nenhuma unidade recebendo doações ainda', 'As doações são entregues em bibliotecas parceiras. Assim que a primeira unidade for cadastrada, o formulário é liberado.', 'h3', compacto=True) %}
+      <a class="button button-light" href="{{ url_for('bibliotecas.bibliotecas') }}">Conhecer a rede parceira</a>
+    {% endcall %}
+    {% else %}
+    <form method="post" class="form-grid" novalidate data-validate>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      {{ ui.field('titulo', 'Título *', form.get('titulo',''), erro=erros.get('titulo'), attrs='required maxlength="200" placeholder="Título da obra"') }}
+      {{ ui.field('autor', 'Autor *', form.get('autor',''), erro=erros.get('autor'), attrs='required maxlength="160" placeholder="Nome de quem escreveu"') }}
+      {{ ui.field('editora', 'Editora', form.get('editora',''), erro=erros.get('editora'), attrs='maxlength="120" placeholder="Opcional"') }}
+      {{ ui.field('ano', 'Ano de publicação', form.get('ano',''), type='number', erro=erros.get('ano'), attrs='min="1000" max="2100" inputmode="numeric" placeholder="Ex.: 2019"') }}
+      {{ ui.field('isbn', 'ISBN', form.get('isbn',''), erro=erros.get('isbn'), dica='Fica no verso ou na ficha catalográfica.', attrs='maxlength="30" inputmode="numeric" placeholder="978-…"') }}
+      <div class="field{% if erros.get('conservacao') %} has-error{% endif %}">
+        <label for="campo-conservacao">Estado de conservação</label>
+        <select id="campo-conservacao" name="conservacao">
+          {% for c in conservacoes %}<option {% if (form.get('conservacao') or 'Boa') == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field full-width{% if erros.get('biblioteca_entrega') %} has-error{% endif %}">
+        <label for="campo-biblioteca">Biblioteca para entrega *</label>
+        <select id="campo-biblioteca" name="biblioteca_entrega" required{% if erros.get('biblioteca_entrega') %} aria-invalid="true"{% endif %}>
+          <option value="">Selecione um ponto parceiro</option>
+          {% for b in bibliotecas %}<option value="{{ b.nome }}" {% if form.get('biblioteca_entrega') == b.nome %}selected{% endif %}>{{ b.nome }} — {{ b.cidade }}/{{ b.estado }}</option>{% endfor %}
+        </select>
+        {% if erros.get('biblioteca_entrega') %}<p class="field-error">{{ icon('circle-alert', 'icon-sm') }}{{ erros.biblioteca_entrega }}</p>{% endif %}
+      </div>
+      <div class="full-width button-row">
+        <button class="button button-accent" type="submit">{{ icon('gift') }}Enviar para curadoria</button>
+        <span class="hint">Campos com * são obrigatórios.</span>
+      </div>
+    </form>
+    {% endif %}
+  </section>
+
+  <aside class="donation-side">
+    <section class="panel impact-card" aria-labelledby="impacto-titulo">
+      <p class="eyebrow">{{ icon('chart-column', 'icon-sm') }}Impacto coletivo</p>
+      <h2 id="impacto-titulo">A comunidade já enviou</h2>
+      <dl class="impact-stats">
+        <div><dt>Submissões</dt><dd>{{ impacto.recebidas }}</dd></div>
+        <div><dt>Aprovadas</dt><dd>{{ impacto.aprovadas }}</dd></div>
+        <div><dt>Em análise</dt><dd>{{ impacto.em_analise }}</dd></div>
+      </dl>
+      <a class="text-link" href="{{ url_for('doacoes.transparencia') }}">Ver transparência completa{{ icon('arrow-right', 'icon-sm') }}</a>
+    </section>
+
+    {% if usuario_atual %}
+    <section class="panel" aria-labelledby="minhas-titulo">
+      <p class="eyebrow">Acompanhamento</p>
+      <h2 id="minhas-titulo">Minhas submissões</h2>
+      {% if minhas %}
+      <ul class="donation-list">
+        {% for d in minhas %}
+        <li class="donation-item">
+          <div>
+            <strong>{{ d.titulo }}</strong>
+            <span>{{ d.autor }} · {{ d.criada_em|data_br }}</span>
+            {% if d.justificativa %}<span class="donation-reason">Motivo: {{ d.justificativa }}</span>{% endif %}
+          </div>
+          {% set tom = {'Aprovada': 'success', 'Recusada': 'danger'}.get(d.status, 'warning') %}
+          <span class="badge badge-{{ tom }}">{{ d.status }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      {% call ui.empty_state('inbox', 'Nenhuma submissão ainda', 'Quando você enviar um livro, o status da análise aparece aqui.', 'h3', compacto=True) %}{% endcall %}
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="panel donation-tips" aria-labelledby="dicas-titulo">
+      <h2 id="dicas-titulo">{{ icon('info', 'icon-sm') }}O que aceitamos</h2>
+      <ul>
+        <li>{{ icon('check', 'icon-sm') }}Livros inteiros, sem páginas faltando.</li>
+        <li>{{ icon('check', 'icon-sm') }}Literatura, didáticos atuais, infantis e técnicos.</li>
+        <li>{{ icon('x', 'icon-sm') }}Exemplares com mofo, rasgos graves ou cópias não autorizadas.</li>
+      </ul>
+    </section>
+  </aside>
+</div>
+{% endblock %}

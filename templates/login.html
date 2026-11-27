@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Entrar ou criar conta{% endblock %}
+{% block page_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth.css') }}">{% endblock %}
+{% block content %}
+{%- set proximo = request.args.get('next', '') -%}
+{%- macro google_button(texto) -%}
+<a class="button google-button" href="{{ url_for('usuarios.google_login', next=proximo) if proximo else url_for('usuarios.google_login') }}">
+  <svg class="google-g" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+  {{ texto }}
+</a>
+{%- endmacro -%}
+<div class="auth-layout">
+  <section class="auth-welcome" aria-labelledby="boas-vindas">
+    <p class="eyebrow">{{ icon('book-heart', 'icon-sm') }}Sua biblioteca</p>
+    <h1 id="boas-vindas">Boas-vindas de volta à estante.</h1>
+    <p>Entre para guardar sua sacola, acompanhar pedidos e prazos, salvar favoritos e compartilhar leituras com a comunidade.</p>
+    <ul class="auth-perks">
+      <li>{{ icon('bell') }}Avisos de devolução e de livros que voltaram ao estoque</li>
+      <li>{{ icon('heart') }}Lista de desejos e recomendações do acervo</li>
+      <li>{{ icon('shield-check') }}Seus dados protegidos conforme a LGPD</li>
+    </ul>
+    <div class="auth-shelf" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+  </section>
+
+  <div class="auth-card" data-tabs>
+    <div class="auth-tabs" role="tablist" aria-label="Acesso à conta">
+      <a role="tab" id="aba-entrar" href="{{ url_for('usuarios.login', next=proximo or None) }}" aria-controls="entrar" aria-selected="{{ 'true' if aba == 'entrar' else 'false' }}" tabindex="{{ 0 if aba == 'entrar' else -1 }}">{{ icon('log-in', 'icon-sm') }}Entrar</a>
+      <a role="tab" id="aba-cadastro" href="{{ url_for('usuarios.login', aba='cadastro', next=proximo or None) }}" aria-controls="cadastro" aria-selected="{{ 'true' if aba == 'cadastro' else 'false' }}" tabindex="{{ 0 if aba == 'cadastro' else -1 }}">{{ icon('user-plus', 'icon-sm') }}Criar conta</a>
+    </div>
+
+    <section class="panel login-card" id="entrar" role="tabpanel" aria-labelledby="aba-entrar" {% if aba != 'entrar' %}hidden{% endif %}>
+      <h2>Entrar</h2>
+      {% if login_error %}
+      <p id="login-error" class="login-inline-error" role="alert" aria-live="assertive">
+        {{ login_error }}
+      </p>
+      {% endif %}
+      <form method="post" action="{{ url_for('usuarios.login', next=proximo) if proximo else url_for('usuarios.login') }}" class="stack">
+        <input type="hidden" name="acao" value="login">
+        <label>E-mail<input type="email" name="email" value="{{ login_email or '' }}" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" maxlength="160" required{% if login_error %} aria-invalid="true" aria-describedby="login-error"{% endif %}></label>
+        <label>Senha
+          <span class="password-field"><input type="password" name="senha" autocomplete="current-password" placeholder="Sua senha" maxlength="128" required{% if login_error %} aria-invalid="true"{% endif %}><button type="button" class="password-toggle" data-password-toggle aria-label="Mostrar senha">{{ icon('eye', 'icon-sm') }}</button></span>
+        </label>
+        <button class="button button-block button-large" type="submit">Acessar conta</button>
+        {% if config.get('GOOGLE_LOGIN_ENABLED') %}
+        <p class="auth-divider"><span>ou</span></p>
+        {{ google_button('Continuar com Google') }}
+        {% endif %}
+      </form>
+    </section>
+
+    <section class="panel signup-card" id="cadastro" role="tabpanel" aria-labelledby="aba-cadastro" {% if aba != 'cadastro' %}hidden{% endif %}>
+      <h2>Criar cadastro</h2>
+      <form method="post" action="{{ url_for('usuarios.login') }}" class="stack" novalidate data-validate>
+        <input type="hidden" name="acao" value="cadastro">
+        {% for campo, rotulo, tipo, auto, extra in [
+          ('nome', 'Nome completo', 'text', 'name', 'minlength="2" maxlength="120" placeholder="Nome e sobrenome" data-validate-nome'),
+          ('email', 'E-mail', 'email', 'email', 'maxlength="160" inputmode="email" placeholder="voce@exemplo.com"'),
+          ('senha', 'Senha', 'password', 'new-password', 'minlength="8" maxlength="128" placeholder="Mínimo de 8 caracteres"'),
+        ] %}
+        <div class="field{% if cadastro_erros.get(campo) %} has-error{% endif %}">
+          <label for="cad-{{ campo }}">{{ rotulo }}</label>
+          <input id="cad-{{ campo }}" name="{{ campo }}" type="{{ tipo }}" autocomplete="{{ auto }}" required {{ extra|safe }} value="{{ cadastro_form.get(campo, '') if campo != 'senha' else '' }}"{% if cadastro_erros.get(campo) %} aria-invalid="true"{% endif %} aria-describedby="cad-{{ campo }}-erro">
+          <p class="field-error" id="cad-{{ campo }}-erro" {% if not cadastro_erros.get(campo) %}hidden{% endif %}>{{ icon('circle-alert', 'icon-sm') }}<span>{{ cadastro_erros.get(campo, '') }}</span></p>
+        </div>
+        {% endfor %}
+        <div class="consents">
+          <label class="checkbox-line{% if cadastro_erros.get('termos_aceitos') %} has-error{% endif %}"><input type="checkbox" name="termos_aceitos" value="1" required><span>Li e aceito os <a href="{{ url_for('main.termos') }}" target="_blank" rel="noopener">Termos e Condições</a> (versão {{ versao_termos }}).</span></label>
+          {% if cadastro_erros.get('termos_aceitos') %}<p class="field-error">{{ icon('circle-alert', 'icon-sm') }}{{ cadastro_erros.termos_aceitos }}</p>{% endif %}
+          <label class="checkbox-line{% if cadastro_erros.get('consentimento_dados') %} has-error{% endif %}"><input type="checkbox" name="consentimento_dados" value="1" required><span>Autorizo o tratamento dos meus dados pessoais para criar e manter a conta, conforme a <a href="{{ url_for('main.privacidade') }}" target="_blank" rel="noopener">Política de Privacidade</a>.</span></label>
+          {% if cadastro_erros.get('consentimento_dados') %}<p class="field-error">{{ icon('circle-alert', 'icon-sm') }}{{ cadastro_erros.consentimento_dados }}</p>{% endif %}
+        </div>
+        <button class="button button-accent button-block button-large" type="submit">Criar conta</button>
+        {% if config.get('GOOGLE_LOGIN_ENABLED') %}
+        <p class="auth-divider"><span>ou</span></p>
+        {{ google_button('Criar conta com Google') }}
+        {% endif %}
+      </form>
+    </section>
+  </div>
+</div>
+<script>
+document.addEventListener('click', (event) => {
+  const toggle = event.target.closest('[data-password-toggle]');
+  if (!toggle) return;
+  const input = toggle.parentElement.querySelector('input');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  toggle.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha');
+  toggle.setAttribute('aria-pressed', String(show));
+});
+</script>
+{% endblock %}

@@ -1,0 +1,41 @@
+{# Formulário de endereço. Variável: endereco (objeto Endereco ou None para novo). #}
+{%- set e = endereco -%}
+{%- set sufixo = e.id if e else 'novo' -%}
+<form method="post" action="{{ url_for('conta.salvar_endereco') }}" class="address-form form-grid" data-address-form novalidate>
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  {% if e %}<input type="hidden" name="endereco_id" value="{{ e.id }}">{% endif %}
+  <fieldset class="segmented full-width">
+    <legend>Identificação</legend>
+    {% for r in ['Casa', 'Trabalho', 'Outro'] %}
+    <label><input type="radio" name="rotulo" value="{{ r }}" {% if (e.rotulo if e else 'Casa') == r %}checked{% endif %}><span>{{ r }}</span></label>
+    {% endfor %}
+  </fieldset>
+  <label>CEP
+    <input name="cep" value="{{ e.cep if e else '' }}" data-mask="cep" data-cep-lookup inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" required>
+  </label>
+  <p class="hint address-feedback" data-cep-feedback aria-live="polite">Digite o CEP para preencher o endereço.</p>
+  <label class="full-width">Logradouro
+    <input name="logradouro" value="{{ e.logradouro if e else '' }}" data-field="logradouro" autocomplete="address-line1" maxlength="160" required>
+  </label>
+  <label>Número
+    <input name="numero" value="{{ e.numero if e and e.numero else '' }}" inputmode="numeric" autocomplete="off" maxlength="10" data-numero {% if e and e.sem_numero %}disabled{% endif %}>
+  </label>
+  <label class="checkbox-line"><input type="checkbox" name="sem_numero" value="1" data-sem-numero {% if e and e.sem_numero %}checked{% endif %}> Endereço sem número</label>
+  <label>Complemento
+    <input name="complemento" value="{{ e.complemento if e and e.complemento else '' }}" autocomplete="address-line2" maxlength="80" placeholder="Apto, bloco, casa (opcional)">
+  </label>
+  <label>Bairro
+    <input name="bairro" value="{{ e.bairro if e else '' }}" data-field="bairro" autocomplete="address-level3" maxlength="100" required>
+  </label>
+  <label>Cidade
+    <input name="cidade" value="{{ e.cidade if e else '' }}" data-field="cidade" autocomplete="address-level2" maxlength="100" required>
+  </label>
+  <label>UF
+    <select name="uf" data-field="estado" autocomplete="address-level1" required>
+      <option value="">Selecione</option>
+      {% for uf in 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split() %}<option {% if e and e.uf == uf %}selected{% endif %}>{{ uf }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="checkbox-line full-width"><input type="checkbox" name="padrao" value="1" {% if e and e.padrao %}checked{% endif %}> Usar como endereço padrão no checkout</label>
+  <div class="full-width button-row"><button class="button" type="submit">{{ icon('check', 'icon-sm') }}{{ 'Salvar alterações' if e else 'Salvar endereço' }}</button></div>
+</form>

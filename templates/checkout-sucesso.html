@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Pedido {{ 'confirmado' if aprovado else 'registrado' }}{% endblock %}
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/checkout.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/checkout-sucesso.css') }}">
+{% endblock %}
+{% block content %}
+{{ ui.steps('confirmacao' if aprovado else 'revisao') }}
+<section class="success-hero{% if not aprovado %} is-pending{% endif %}" aria-labelledby="sucesso-titulo">
+  <span class="success-badge">{{ icon('circle-check' if aprovado else 'clock', 'icon-xl') }}</span>
+  <div>
+    <p class="eyebrow">Pedido nº {{ reference[:8]|upper }}</p>
+    <h1 id="sucesso-titulo">{{ 'Pedido confirmado!' if aprovado else 'Pedido registrado, aguardando pagamento' }}</h1>
+    <p>{% if aprovado %}Obrigado, {{ (pedido.nome_completo or usuario_atual.nome).split()[0] }}. Seu pagamento {{ 'demonstrativo ' if modo_demo }}foi aprovado e já começamos a preparar seus livros.{% else %}Assim que o pagamento for confirmado, o status muda automaticamente no seu perfil.{% endif %}</p>
+  </div>
+</section>
+
+<div class="success-layout">
+  <section class="panel" aria-labelledby="resumo-pedido">
+    <h2 id="resumo-pedido">Resumo do pedido</h2>
+    <ul class="summary-items">
+      {% for tx in rows %}
+      <li>
+        {{ ui.cover(tx.livro, 'book-cover summary-cover') }}
+        <span><strong>{{ tx.livro.titulo }}</strong><small>{{ tx.quantidade }} × {{ 'aluguel de ' ~ tx.dias_aluguel ~ ' dias' if tx.tipo == 'aluguel' else 'compra' }}{% if tx.data_devolucao_prevista %} · devolver até {{ tx.data_devolucao_prevista|data_br }}{% endif %}</small></span>
+        <strong>{{ tx.valor_base|brl }}</strong>
+      </li>
+      {% endfor %}
+    </ul>
+    <dl class="cart-totals">
+      <div><dt>Itens</dt><dd>{{ subtotal|brl }}</dd></div>
+      <div><dt>Entrega</dt><dd>{{ frete|brl if frete else 'Grátis' }}</dd></div>
+      <div class="cart-totals-total"><dt>Total</dt><dd>{{ total|brl }}</dd></div>
+    </dl>
+    <dl class="order-facts">
+      <div><dt>{{ icon('credit-card', 'icon-sm') }}Pagamento</dt><dd>{{ pedido.forma_pagamento }}{% if modo_demo %} (demonstração){% endif %}</dd></div>
+      <div><dt>{{ icon('truck' if pedido.modo_entrega == 'domicilio' else 'library', 'icon-sm') }}{{ 'Entrega' if pedido.modo_entrega == 'domicilio' else 'Retirada' }}</dt><dd>{% if pedido.modo_entrega == 'domicilio' %}{{ pedido.endereco_entrega }}, {{ pedido.cidade_entrega }}/{{ pedido.estado_entrega }}{% else %}{{ pedido.biblioteca.nome if pedido.biblioteca else 'Biblioteca parceira' }}{% endif %}</dd></div>
+      <div><dt>{{ icon('calendar', 'icon-sm') }}Data</dt><dd>{{ pedido.data_transacao|data_br }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="panel next-steps" aria-labelledby="proximos-passos">
+    <h2 id="proximos-passos">Próximos passos</h2>
+    <ol>
+      {% if pedido.modo_entrega == 'domicilio' %}
+      <li>{{ icon('package') }}<div><strong>Separação</strong><span>A equipe separa os exemplares e prepara o envio.</span></div></li>
+      <li>{{ icon('truck') }}<div><strong>Entrega</strong><span>O status muda para “Enviado” e depois “Entregue” no seu perfil.</span></div></li>
+      {% else %}
+      <li>{{ icon('package') }}<div><strong>Separação na unidade</strong><span>Avisaremos no perfil quando estiver “Disponível para retirada”.</span></div></li>
+      <li>{{ icon('id-card') }}<div><strong>Retirada</strong><span>Leve um documento com foto até {{ pedido.biblioteca.nome if pedido.biblioteca else 'a unidade' }}{% if pedido.biblioteca and pedido.biblioteca.horario %} ({{ pedido.biblioteca.horario }}){% endif %}.</span></div></li>
+      {% endif %}
+      {% if rows|selectattr('tipo', 'equalto', 'aluguel')|list %}
+      <li>{{ icon('clock') }}<div><strong>Devolução</strong><span>Você recebe um aviso quando faltarem 2 dias e pode renovar se houver estoque.</span></div></li>
+      {% endif %}
+      <li>{{ icon('star') }}<div><strong>Avalie a leitura</strong><span>Depois de ler, conte o que achou na página do livro.</span></div></li>
+    </ol>
+    <div class="button-row">
+      <a class="button" href="{{ url_for('usuarios.perfil', aba='pedidos') }}">{{ icon('package', 'icon-sm') }}Acompanhar no perfil</a>
+      <a class="button button-light" href="{{ url_for('livros.catalogo') }}">Continuar explorando</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

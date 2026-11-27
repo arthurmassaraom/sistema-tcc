@@ -1,0 +1,515 @@
+{% extends 'base.html' %}
+{% import 'macros/ui.html' as ui with context %}
+{% block title %}Minha conta{% endblock %}
+{% block page_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/perfil.css') }}">{% endblock %}
+{% block head %}<script defer src="{{ url_for('static', filename='js/endereco.js') }}"></script>{% endblock %}
+{% block content %}
+{%- set abas = [
+  ('inicio', 'Início', 'house'),
+  ('pedidos', 'Pedidos', 'package'),
+  ('estante', 'Minha estante', 'book-open'),
+  ('enderecos', 'Endereços', 'map-pin'),
+  ('dados', 'Meus dados', 'user'),
+  ('seguranca', 'Segurança', 'shield-check'),
+  ('preferencias', 'Preferências', 'settings'),
+  ('conta', 'Conta', 'user-x'),
+] -%}
+{%- set com_senha = usuario.senha_definida is not sameas false -%}
+
+{# ================= Cabeçalho ================= #}
+<header class="profile-hero">
+  <div class="profile-identity">
+    {{ avatar(usuario, 'avatar-xl', decorative=False) }}
+    <div>
+      <p class="eyebrow">Minha conta</p>
+      <h1>Olá, {{ usuario.nome.split()[0] }}.</h1>
+      <p class="profile-meta">
+        <span>{{ icon('mail', 'icon-sm') }}{{ usuario.email }}</span>
+        <span class="badge badge-accent">{{ icon('sparkles', 'icon-sm') }}Plano {{ usuario.plano.nome if usuario.plano else 'Básico' }}</span>
+        {% if usuario.two_fa_ativo %}<span class="badge badge-success">{{ icon('shield-check', 'icon-sm') }}2FA ativa</span>{% endif %}
+        {% if usuario.criado_em %}<span>{{ icon('calendar', 'icon-sm') }}Leitor desde {{ usuario.criado_em.strftime('%m/%Y') }}</span>{% endif %}
+      </p>
+    </div>
+  </div>
+  <div class="button-row profile-actions">
+    <a class="button button-light" href="{{ url_for('main.planos') }}">{{ icon('sparkles', 'icon-sm') }}Trocar plano</a>
+    <a class="button" href="{{ url_for('livros.catalogo') }}">{{ icon('book-open', 'icon-sm') }}Explorar acervo</a>
+  </div>
+</header>
+
+<nav class="profile-tabs" aria-label="Seções da conta">
+  <div class="tab-list" role="tablist" data-tabs data-tabs-param="aba">
+    {% for chave, rotulo, ic in abas %}
+    <a role="tab" id="tab-{{ chave }}" data-tab="{{ chave }}" href="{{ url_for('usuarios.perfil', aba=chave) }}" aria-controls="painel-{{ chave }}" aria-selected="{{ 'true' if aba == chave else 'false' }}" tabindex="{{ 0 if aba == chave else -1 }}">{{ icon(ic, 'icon-sm') }}{{ rotulo }}</a>
+    {% endfor %}
+  </div>
+</nav>
+
+{# ================= INÍCIO ================= #}
+<section class="tab-panel" id="painel-inicio" role="tabpanel" aria-labelledby="tab-inicio" {% if aba != 'inicio' %}hidden{% endif %}>
+  <dl class="profile-stats">
+    <div>{{ icon('package', 'icon-lg') }}<dt>Pedidos</dt><dd>{{ transacoes|length }}</dd></div>
+    <div>{{ icon('book-open', 'icon-lg') }}<dt>Aluguéis ativos</dt><dd>{{ ativos|length }}</dd></div>
+    <div>{{ icon('heart', 'icon-lg') }}<dt>Favoritos</dt><dd>{{ favoritos|length }}</dd></div>
+    <div class="{{ 'is-alert' if multas > 0 else '' }}">{{ icon('scale', 'icon-lg') }}<dt>Multas acumuladas</dt><dd>{{ multas|brl }}</dd></div>
+  </dl>
+
+  {% if notificacoes %}
+  <section class="panel notifications" aria-labelledby="avisos-titulo">
+    <div class="notifications-head">
+      <h2 id="avisos-titulo" class="panel-title">{{ icon('bell', 'icon-sm') }}Avisos {% if nao_lidas %}<span class="badge badge-accent">{{ nao_lidas }} {{ 'novo' if nao_lidas == 1 else 'novos' }}</span>{% endif %}</h2>
+      {% if nao_lidas %}
+      <form method="post" action="{{ url_for('conta.marcar_lidas') }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="voltar" value="{{ request.full_path }}">
+        <button class="button button-ghost button-small" type="submit">{{ icon('check', 'icon-sm') }}Marcar como lidos</button>
+      </form>
+      {% endif %}
+    </div>
+    <ul>
+      {% for n in notificacoes %}
+      <li class="notification tipo-{{ n.tipo }}{% if not n.lida %} is-unread{% endif %}">
+        {{ icon({'alerta': 'triangle-alert', 'prazo': 'clock', 'retirada': 'library', 'estoque': 'bell'}.get(n.tipo, 'info')) }}
+        <div><strong>{{ n.titulo }}</strong><span>{{ n.mensagem }}</span></div>
+        {% if n.url %}<a class="text-link" href="{{ n.url }}">Ver{{ icon('arrow-right', 'icon-sm') }}</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <h2 class="panel-title">Em andamento</h2>
+  {% if ativos %}
+  <div class="rental-grid">
+    {% for tx in ativos %}
+    {%- set dias = prazos[tx.id] -%}
+    {%- set total_dias = tx.dias_aluguel or 14 -%}
+    {%- set usado = [[(total_dias - (dias or 0)) / total_dias * 100, 0]|max, 100]|min -%}
+    <article class="rental-card{% if dias is not none and dias < 0 %} is-late{% elif dias is not none and dias <= 2 %} is-due{% endif %}">
+      <a href="{{ url_for('livros.detalhes', livro_id=tx.livro_id) }}" class="rental-cover" tabindex="-1" aria-hidden="true">{{ ui.cover(tx.livro, 'book-cover') }}</a>
+      <div class="rental-body">
+        <h3><a href="{{ url_for('livros.detalhes', livro_id=tx.livro_id) }}">{{ tx.livro.titulo }}</a></h3>
+        {% if dias is none %}
+        <p class="rental-countdown">Prazo não informado</p>
+        {% elif dias < 0 %}
+        <p class="rental-countdown" role="alert">{{ icon('triangle-alert', 'icon-sm') }}Atrasado há {{ -dias }} {{ 'dia' if dias == -1 else 'dias' }} · multa atual {{ tx.calcular_multa()|brl }}</p>
+        {% elif dias == 0 %}
+        <p class="rental-countdown" role="alert">{{ icon('clock', 'icon-sm') }}Devolva hoje!</p>
+        {% else %}
+        <p class="rental-countdown"{% if dias <= 2 %} role="alert"{% endif %}>{{ icon('clock', 'icon-sm') }}Faltam <strong>{{ dias }}</strong> {{ 'dia' if dias == 1 else 'dias' }}</p>
+        {% endif %}
+        <div class="progress" role="progressbar" aria-label="Prazo do aluguel usado" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ usado|round|int }}"><span style="width: {{ usado|round(1) }}%"></span></div>
+        <p class="hint">Devolver até {{ tx.data_devolucao_prevista|data_br }}{% if tx.renovacoes %} · renovado {{ tx.renovacoes }}x{% endif %}</p>
+        <div class="button-row">
+          {% if tx.livro.estoque > 0 and (tx.renovacoes or 0) < 2 and (dias is none or dias >= 0) %}
+          <form method="post" action="{{ url_for('livros.renovar', transacao_id=tx.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="button button-small" type="submit">{{ icon('refresh-cw', 'icon-sm') }}Renovar aluguel</button>
+          </form>
+          {% else %}
+          <span class="hint" title="Renovação depende de estoque livre e de no máximo 2 renovações">{{ icon('info', 'icon-sm') }}Renovação indisponível</span>
+          {% endif %}
+          <form method="post" action="{{ url_for('livros.devolver', transacao_id=tx.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="button button-light button-small" type="submit">Registrar devolução</button>
+          </form>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  {% call ui.empty_state('book-open', 'Nenhum livro em andamento', 'Quando você alugar um livro, o prazo de devolução aparece aqui.') %}
+    <a class="button" href="{{ url_for('livros.catalogo') }}">{{ icon('book-open') }}Explorar o acervo</a>
+  {% endcall %}
+  {% endif %}
+</section>
+
+{# ================= PEDIDOS ================= #}
+<section class="tab-panel" id="painel-pedidos" role="tabpanel" aria-labelledby="tab-pedidos" {% if aba != 'pedidos' %}hidden{% endif %}>
+  <h2 class="panel-title">Histórico de pedidos</h2>
+  {% if transacoes %}
+  <ul class="order-list">
+    {% for tx in transacoes %}
+    <li class="order-row">
+      <a class="order-cover" href="{{ url_for('livros.detalhes', livro_id=tx.livro_id) }}" tabindex="-1" aria-hidden="true">{{ ui.cover(tx.livro, 'book-cover') }}</a>
+      <div class="order-info">
+        <h3>{{ tx.livro.titulo }} <small>× {{ tx.quantidade or 1 }}</small></h3>
+        <p>{{ 'Aluguel' if tx.tipo == 'aluguel' else 'Compra' }}{% if tx.dias_aluguel %} · {{ tx.dias_aluguel }} dias{% endif %} · {{ tx.data_transacao|data_br }}</p>
+        <p>{{ icon('truck' if tx.modo_entrega == 'domicilio' else 'library', 'icon-sm') }}{{ 'Entrega em domicílio' if tx.modo_entrega == 'domicilio' else 'Retirada' }}{% if tx.biblioteca %} · {{ tx.biblioteca.nome }}{% endif %} · {{ tx.status_entrega }}</p>
+      </div>
+      <div class="order-meta">
+        {{ ui.status_badge(tx.status) }}
+        <strong>{{ (tx.valor_base + tx.frete)|brl }}</strong>
+        {% if tx.tipo == 'aluguel' %}<small>Multa: {{ (tx.multa if tx.status != 'ativa' else tx.calcular_multa())|brl }}</small>{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  {% call ui.empty_state('package', 'Seu diário de leituras começa aqui', 'Você ainda não fez pedidos. Alugue por 7, 14 ou 30 dias ou compre para guardar na estante.') %}
+    <a class="button" href="{{ url_for('livros.catalogo') }}">{{ icon('book-open') }}Explorar o acervo</a>
+  {% endcall %}
+  {% endif %}
+
+  {% if espera %}
+  <h2 class="panel-title">Lista de espera</h2>
+  <ul class="mini-list">
+    {% for e in espera %}
+    <li>{{ icon('bell', 'icon-sm') }}<a href="{{ url_for('livros.detalhes', livro_id=e.livro_id) }}">{{ e.livro.titulo }}</a><span class="muted">avisaremos quando voltar ao estoque</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if sugestoes and not transacoes %}
+  <h2 class="panel-title">Sugestões para começar</h2>
+  <div class="book-grid">{% for livro in sugestoes %}{{ ui.book_card(livro) }}{% endfor %}</div>
+  {% endif %}
+</section>
+
+{# ================= MINHA ESTANTE ================= #}
+<section class="tab-panel" id="painel-estante" role="tabpanel" aria-labelledby="tab-estante" {% if aba != 'estante' %}hidden{% endif %}>
+  <h2 class="panel-title">Lista de desejos</h2>
+  {% if favoritos %}
+  <div class="favorites-grid">
+    {% for f in favoritos %}
+    <div class="favorite-item">
+      {{ ui.book_card(f.livro) }}
+      <form method="post" action="{{ url_for('livros.favoritar', livro_id=f.livro_id) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="voltar" value="{{ url_for('usuarios.perfil', aba='estante') }}">
+        <button class="button button-ghost button-small button-block" type="submit">{{ icon('heart', 'icon-sm') }}Remover dos favoritos</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  {% call ui.empty_state('heart', 'Nenhum favorito ainda', 'Toque em “Salvar nos favoritos” na página de um livro para guardá-lo aqui.') %}
+    <a class="button" href="{{ url_for('livros.catalogo') }}">{{ icon('search') }}Procurar livros</a>
+  {% endcall %}
+  {% if sugestoes %}<h3 class="panel-subtitle">Talvez você goste</h3><div class="book-grid">{% for livro in sugestoes %}{{ ui.book_card(livro) }}{% endfor %}</div>{% endif %}
+  {% endif %}
+
+  <h2 class="panel-title">Minhas avaliações</h2>
+  {% if avaliacoes %}
+  <ul class="my-reviews">
+    {% for a in avaliacoes %}
+    <li class="my-review">
+      <a class="order-cover" href="{{ url_for('livros.detalhes', livro_id=a.livro_id) }}" tabindex="-1" aria-hidden="true">{{ ui.cover(a.livro, 'book-cover') }}</a>
+      <div>
+        <h3><a href="{{ url_for('livros.detalhes', livro_id=a.livro_id) }}">{{ a.livro.titulo }}</a></h3>
+        {{ ui.stars(a.estrelas) }} <small class="muted">{{ a.criada_em|data_br }}</small>
+        <p>{{ a.comentario }}</p>
+        <div class="button-row">
+          <a class="button button-light button-small" href="{{ url_for('livros.detalhes', livro_id=a.livro_id) }}#avaliacoes">{{ icon('pencil', 'icon-sm') }}Editar</a>
+          <form method="post" action="{{ url_for('livros.remover_avaliacao', avaliacao_id=a.id) }}" data-confirm="Remover sua avaliação de “{{ a.livro.titulo }}”?">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="button button-danger button-small" type="submit">{{ icon('trash-2', 'icon-sm') }}Remover</button>
+          </form>
+        </div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if para_avaliar %}
+  <h3 class="panel-subtitle">Livros que você já leu e ainda não avaliou</h3>
+  <ul class="mini-list">
+    {% for livro in para_avaliar %}
+    <li>{{ icon('star', 'icon-sm') }}<a href="{{ url_for('livros.detalhes', livro_id=livro.id) }}#avaliacoes">{{ livro.titulo }}</a><a class="button button-small" href="{{ url_for('livros.detalhes', livro_id=livro.id) }}#avaliacoes">Avaliar agora</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if not avaliacoes and not para_avaliar %}
+  {% call ui.empty_state('star', 'Nenhuma avaliação por aqui', 'Depois de comprar ou alugar um livro, conte o que achou: sua opinião ajuda outros leitores a escolher.') %}
+    <a class="button" href="{{ url_for('livros.catalogo') }}">{{ icon('book-open') }}Encontrar um livro</a>
+  {% endcall %}
+  {% endif %}
+</section>
+
+{# ================= ENDEREÇOS ================= #}
+<section class="tab-panel" id="painel-enderecos" role="tabpanel" aria-labelledby="tab-enderecos" {% if aba != 'enderecos' %}hidden{% endif %}>
+  <h2 class="panel-title">Endereços salvos <span class="badge">{{ enderecos|length }} de {{ limite_enderecos }}</span></h2>
+  {% if enderecos %}
+  <div class="address-grid">
+    {% for e in enderecos %}
+    <article class="address-card{% if e.padrao %} is-default{% endif %}">
+      <header>
+        <h3>{{ icon('house' if e.rotulo == 'Casa' else 'building-2' if e.rotulo == 'Trabalho' else 'map-pin', 'icon-sm') }}{{ e.rotulo }}</h3>
+        {% if e.padrao %}<span class="badge badge-success">{{ icon('check') }}Padrão</span>{% endif %}
+      </header>
+      <p>{{ e.linha }}<br>{{ e.cidade }}/{{ e.uf }} · CEP {{ e.cep }}</p>
+      <div class="address-map" data-address-map data-cep="{{ e.cep }}" data-numero="{{ e.numero or '' }}" data-sem-numero="{{ '1' if e.sem_numero else '' }}" data-ativo="{{ '1' if mapas_ativos else '' }}"></div>
+      <div class="button-row">
+        <button class="button button-light button-small" type="button" data-map-toggle>{{ icon('map', 'icon-sm') }}Ver no mapa</button>
+        {% if not e.padrao %}
+        <form method="post" action="{{ url_for('conta.endereco_padrao', endereco_id=e.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="button button-ghost button-small" type="submit">Tornar padrão</button></form>
+        {% endif %}
+        <form method="post" action="{{ url_for('conta.remover_endereco', endereco_id=e.id) }}" data-confirm="Remover o endereço “{{ e.rotulo }}”?"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="button button-danger button-small" type="submit">{{ icon('trash-2', 'icon-sm') }}Remover</button></form>
+      </div>
+      <details class="address-edit">
+        <summary>{{ icon('pencil', 'icon-sm') }}Editar endereço</summary>
+        {% with endereco=e %}{% include 'partials/endereco_form.html' %}{% endwith %}
+      </details>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if enderecos|length < limite_enderecos %}
+  <div class="panel address-new">
+    <h3>{{ icon('plus', 'icon-sm') }}{{ 'Adicionar endereço' if enderecos else 'Cadastre seu primeiro endereço' }}</h3>
+    {% if not enderecos %}<p class="muted">Com um endereço salvo, o checkout é preenchido automaticamente. Você pode guardar até {{ limite_enderecos }}.</p>{% endif %}
+    {% with endereco=None %}{% include 'partials/endereco_form.html' %}{% endwith %}
+  </div>
+  {% else %}
+  <p class="alert alert-info">{{ icon('info') }}<span>Você atingiu o limite de {{ limite_enderecos }} endereços. Remova um para cadastrar outro.</span></p>
+  {% endif %}
+</section>
+
+{# ================= DADOS ================= #}
+<section class="tab-panel" id="painel-dados" role="tabpanel" aria-labelledby="tab-dados" {% if aba != 'dados' %}hidden{% endif %}>
+  <div class="settings-grid">
+    <section class="panel" aria-labelledby="foto-titulo">
+      <h2 id="foto-titulo" class="panel-title">Foto de perfil</h2>
+      <div class="photo-editor">
+        <span data-avatar-preview>{{ avatar(usuario, 'avatar-xl') }}</span>
+        <div class="photo-controls">
+          <form id="form-enviar-foto" method="post" action="{{ url_for('conta.enviar_foto') }}" enctype="multipart/form-data" class="stack" data-avatar-form>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <label class="file-input">{{ icon('camera', 'icon-sm') }}<span>Escolher imagem</span><input type="file" name="foto" accept="image/jpeg,image/png,image/webp" required data-avatar-input></label>
+            <p class="hint">JPG, PNG ou WebP até 2 MB. Recortamos em quadrado de 512 px e removemos metadados como localização.</p>
+            <p class="field-error" data-avatar-error hidden></p>
+            <div class="photo-actions">
+              <button class="button button-small" type="submit">{{ icon('upload', 'icon-sm') }}Enviar foto</button>
+              {% if usuario.foto %}
+              <button class="button button-ghost button-small" type="submit" form="form-remover-foto">{{ icon('trash-2', 'icon-sm') }}Remover foto</button>
+              {% endif %}
+            </div>
+          </form>
+          {% if usuario.foto %}
+          <form id="form-remover-foto" method="post" action="{{ url_for('conta.remover_foto') }}" hidden>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="dados-titulo">
+      <h2 id="dados-titulo" class="panel-title">Dados pessoais</h2>
+      <form method="post" action="{{ url_for('conta.atualizar_dados') }}" class="stack" novalidate data-validate>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        {{ ui.field('nome', 'Nome', usuario.nome, attrs='required minlength="2" maxlength="120" autocomplete="name" data-validate-nome') }}
+        {{ ui.field('telefone', 'Telefone com DDD', usuario.telefone or '', type='tel', dica='Celular (11 dígitos) ou fixo (10 dígitos).', attrs='data-mask="phone" inputmode="tel" autocomplete="tel" placeholder="(11) 98765-4321" data-validate-telefone') }}
+        {% if usuario.cpf %}<p class="hint">{{ icon('id-card', 'icon-sm') }}CPF cadastrado: ***.***.{{ usuario.cpf[-5:-2] }}-{{ usuario.cpf[-2:] }}</p>{% endif %}
+        <button class="button" type="submit">Salvar dados</button>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="email-titulo">
+      <h2 id="email-titulo" class="panel-title">E-mail de acesso</h2>
+      <p class="hint">Atual: <strong>{{ usuario.email }}</strong></p>
+      {% if usuario.google_sub %}
+      <p class="alert alert-info">{{ icon('info') }}<span>Conta vinculada ao Google. O e-mail é o da sua conta Google e não pode ser alterado por aqui.</span></p>
+      {% else %}
+      <form method="post" action="{{ url_for('conta.alterar_email') }}" class="stack" novalidate data-validate>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        {{ ui.field('email', 'Novo e-mail', '', type='email', attrs='required maxlength="160" autocomplete="email" inputmode="email"') }}
+        {{ ui.field('senha_atual', 'Senha atual', '', type='password', id='email-senha', dica='Por segurança, confirme sua senha para trocar o e-mail.', attrs='required autocomplete="current-password"') }}
+        <button class="button" type="submit">Alterar e-mail</button>
+      </form>
+      {% endif %}
+    </section>
+  </div>
+</section>
+
+{# ================= SEGURANÇA ================= #}
+<section class="tab-panel" id="painel-seguranca" role="tabpanel" aria-labelledby="tab-seguranca" {% if aba != 'seguranca' %}hidden{% endif %}>
+  <div class="settings-grid">
+
+    <section class="panel security-card" aria-labelledby="2fa-titulo">
+      <div class="security-head">
+        <h2 id="2fa-titulo" class="panel-title">{{ icon('shield-check', 'icon-sm') }}Verificação em duas etapas</h2>
+        {% if usuario.two_fa_ativo %}<span class="badge badge-success">{{ icon('check', 'icon-sm') }}Ativa</span>{% else %}<span class="badge">Desativada</span>{% endif %}
+      </div>
+
+      {% if usuario.two_fa_ativo %}
+        <p>Ao entrar, enviamos um código de 6 dígitos para <strong>{{ two_fa_email }}</strong>. Só depois dele a conta é liberada.</p>
+        {% if two_fa_pendente %}
+        <form method="post" action="{{ url_for('conta.confirmar_desativacao_2fa') }}" class="stack" novalidate>
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <p class="hint">Enviamos um código para <strong>{{ two_fa_email }}</strong>. Digite-o para desativar.</p>
+          <label>Código de 6 dígitos
+            <input class="codigo-input" type="text" name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+          </label>
+          <button class="button button-danger" type="submit">Confirmar desativação</button>
+        </form>
+        <div class="button-row">
+          <form method="post" action="{{ url_for('conta.enviar_codigo_desativacao_2fa') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="button button-ghost button-small" type="submit">Reenviar código</button>
+          </form>
+        </div>
+        {% else %}
+        <form method="post" action="{{ url_for('conta.enviar_codigo_desativacao_2fa') }}" data-confirm="Desativar a verificação em duas etapas? Vamos enviar um código para o seu e-mail.">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button class="button button-danger" type="submit">{{ icon('mail', 'icon-sm') }}Enviar código para desativar</button>
+        </form>
+        {% endif %}
+
+      {% elif two_fa_pendente %}
+        <p>Enviamos um código para <strong>{{ two_fa_email }}</strong>. Digite-o abaixo para ativar a proteção.</p>
+        <form method="post" action="{{ url_for('conta.confirmar_2fa') }}" class="stack" novalidate>
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <label>Código de 6 dígitos
+            <input class="codigo-input" type="text" name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+          </label>
+          <button class="button" type="submit">{{ icon('check', 'icon-sm') }}Confirmar ativação</button>
+        </form>
+        <div class="button-row">
+          <form method="post" action="{{ url_for('conta.cancelar_ativacao_2fa') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="button button-ghost button-small" type="submit">Cancelar</button>
+          </form>
+          <form method="post" action="{{ url_for('conta.ativar_2fa') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="button button-light button-small" type="submit">Reenviar código</button>
+          </form>
+        </div>
+
+      {% else %}
+        <p>Adicione uma camada extra de proteção: além da senha, pediremos um código enviado ao seu e-mail sempre que alguém entrar na conta.</p>
+        <form method="post" action="{{ url_for('conta.ativar_2fa') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button class="button" type="submit">{{ icon('mail', 'icon-sm') }}Enviar código de ativação</button>
+        </form>
+      {% endif %}
+    </section>
+
+    <section class="panel security-card" aria-labelledby="senha-titulo">
+      <div class="security-head">
+        <h2 id="senha-titulo" class="panel-title">{{ 'Trocar senha' if com_senha else 'Definir senha' }}</h2>
+      </div>
+      {% if usuario.google_sub %}
+      <p class="alert alert-info">{{ icon('info') }}<span>Conta vinculada ao Google. A senha é gerenciada pelo Google e não pode ser alterada por aqui.</span></p>
+      {% else %}
+      <form method="post" action="{{ url_for('conta.alterar_senha') }}" class="stack" novalidate data-validate>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        {% if com_senha %}{{ ui.field('senha_atual', 'Senha atual', '', type='password', id='senha-atual', attrs='required autocomplete="current-password"') }}{% else %}<p class="hint">Sua conta foi criada com o Google. Defina uma senha para também entrar com e-mail.</p>{% endif %}
+        {{ ui.field('nova_senha', 'Nova senha', '', type='password', dica='Mínimo de 8 caracteres.', attrs='required minlength="8" maxlength="128" autocomplete="new-password"') }}
+        {{ ui.field('confirmacao', 'Confirme a nova senha', '', type='password', attrs='required minlength="8" maxlength="128" autocomplete="new-password" data-match="campo-nova_senha"') }}
+        <button class="button" type="submit">Salvar senha</button>
+      </form>
+      {% endif %}
+    </section>
+
+    {% if google_ativo or usuario.google_sub %}
+    <section class="panel security-card" aria-labelledby="google-titulo">
+      <div class="security-head">
+        <h2 id="google-titulo" class="panel-title">Conta Google</h2>
+        {% if usuario.google_sub %}<span class="badge badge-success">{{ icon('check', 'icon-sm') }}Vinculada</span>{% else %}<span class="badge">Não vinculada</span>{% endif %}
+      </div>
+      {% if usuario.google_sub %}
+        <p>Você pode entrar com o Google, sem senha.</p>
+        {% if not com_senha %}
+        <p class="hint">Para desvincular, defina antes uma senha — assim você não perde o acesso.</p>
+        {% else %}
+        <form method="post" action="{{ url_for('conta.desvincular_google') }}" data-confirm="Desvincular a conta Google? Você continuará entrando com e-mail e senha.">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button class="button button-light" type="submit">Desvincular Google</button>
+        </form>
+        {% endif %}
+      {% else %}
+        <p class="muted">Vincule para entrar com um clique, sem senha.</p>
+        <a class="button button-light" href="{{ url_for('usuarios.google_login', vincular=1) }}">Vincular conta Google</a>
+      {% endif %}
+    </section>
+    {% endif %}
+  </div>
+</section>
+
+{# ================= PREFERÊNCIAS ================= #}
+<section class="tab-panel" id="painel-preferencias" role="tabpanel" aria-labelledby="tab-preferencias" {% if aba != 'preferencias' %}hidden{% endif %}>
+  <div class="settings-grid">
+    <section class="panel" aria-labelledby="notif-titulo">
+      <h2 id="notif-titulo" class="panel-title">Avisos por e-mail</h2>
+      <p class="hint">Suas escolhas ficam salvas e serão usadas quando os avisos por e-mail estiverem ativos.</p>
+      <form method="post" action="{{ url_for('conta.preferencias') }}" class="stack">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        {% for campo, rotulo, desc in [('notif_pedido','Pedidos e lista de espera','Confirmações e títulos que voltaram ao estoque.'),('notif_devolucao','Prazos de devolução','Lembrete quando faltarem 2 dias ou menos.'),('notif_retirada','Retirada na biblioteca','Quando o livro estiver pronto para retirar.')] %}
+        <label class="switch">
+          <input type="checkbox" name="{{ campo }}" value="1" role="switch" {% if usuario[campo] %}checked{% endif %}>
+          <span class="switch-track" aria-hidden="true"></span>
+          <span><strong>{{ rotulo }}</strong><small>{{ desc }}</small></span>
+        </label>
+        {% endfor %}
+        <button class="button" type="submit">Salvar preferências</button>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="privacidade-titulo">
+      <h2 id="privacidade-titulo" class="panel-title">Privacidade</h2>
+      <dl class="privacy-facts">
+        <div><dt>Termos aceitos</dt><dd>{{ ('versão ' ~ usuario.termos_versao_aceita) if usuario.termos_versao_aceita else 'Ainda não registrado' }}</dd></div>
+        <div><dt>Consentimento de dados</dt><dd>{{ ('versão ' ~ usuario.consentimento_versao ~ ' em ' ~ usuario.consentimento_em|data_br) if usuario.consentimento_em else 'Ainda não registrado' }}</dd></div>
+      </dl>
+      <p class="hint"><a href="{{ url_for('main.privacidade') }}">Política de Privacidade</a> · <a href="{{ url_for('main.cookies') }}">Cookies</a></p>
+    </section>
+  </div>
+</section>
+
+{# ================= CONTA ================= #}
+<section class="tab-panel" id="painel-conta" role="tabpanel" aria-labelledby="tab-conta" {% if aba != 'conta' %}hidden{% endif %}>
+  <div class="settings-grid">
+    <section class="panel" aria-labelledby="sair-titulo">
+      <h2 id="sair-titulo" class="panel-title">Sessão</h2>
+      <p class="hint">Encerra o acesso neste aparelho.</p>
+      <form method="post" action="{{ url_for('usuarios.logout') }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <button class="button button-ghost" type="submit">{{ icon('log-out', 'icon-sm') }}Sair da conta</button>
+      </form>
+    </section>
+
+    <section class="panel danger-zone" aria-labelledby="excluir-titulo">
+      <h2 id="excluir-titulo" class="panel-title">{{ icon('user-x', 'icon-sm') }}Excluir conta</h2>
+      <p>Seus dados pessoais são apagados e seus pedidos ficam anonimizados (sem nome, CPF, e-mail, telefone ou endereço), pois precisamos deles para controle de estoque e obrigações legais. Endereços, favoritos, avaliações e avisos são removidos. Esta ação não pode ser desfeita.</p>
+      <details>
+        <summary class="button button-danger">Quero excluir minha conta</summary>
+        {% if usuario.google_sub %}
+          {% if not usuario.two_fa_ativo %}
+          <p class="alert alert-warning">{{ icon('triangle-alert') }}<span>Para excluir a conta vinculada ao Google, ative antes a <a href="{{ url_for('usuarios.perfil', aba='seguranca') }}">verificação em duas etapas</a>.</span></p>
+          {% elif not two_fa_pendente %}
+          <form method="post" action="{{ url_for('conta.enviar_codigo_exclusao') }}" class="stack danger-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <p class="hint">Enviaremos um código de 6 dígitos para <strong>{{ two_fa_email }}</strong> para confirmar.</p>
+            <button class="button button-danger" type="submit">{{ icon('mail', 'icon-sm') }}Enviar código para excluir</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('conta.excluir_conta') }}" class="stack danger-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <label>Código enviado para {{ two_fa_email }}
+              <input class="codigo-input" type="text" name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+            </label>
+            <button class="button button-danger" type="submit">{{ icon('trash-2', 'icon-sm') }}Excluir definitivamente</button>
+          </form>
+          <form method="post" action="{{ url_for('conta.enviar_codigo_exclusao') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="button button-ghost button-small" type="submit">Reenviar código</button>
+          </form>
+          {% endif %}
+        {% else %}
+        <form method="post" action="{{ url_for('conta.excluir_conta') }}" class="stack danger-form">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          {% if not com_senha %}
+          {{ ui.field('confirmacao', 'Digite seu e-mail para confirmar', '', type='email', id='excluir-confirmacao', attrs='required autocomplete="off"') }}
+          {% else %}
+          {{ ui.field('senha_atual', 'Confirme com sua senha', '', type='password', id='excluir-senha', attrs='required autocomplete="current-password"') }}
+          {% endif %}
+          <button class="button button-danger" type="submit">{{ icon('trash-2', 'icon-sm') }}Excluir definitivamente</button>
+        </form>
+        {% endif %}
+      </details>
+    </section>
+  </div>
+</section>
+{% endblock %}

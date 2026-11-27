@@ -1,0 +1,36 @@
+{% extends '_legal_base.html' %}
+{% block title %}Política de Cookies{% endblock %}
+{% block toc %}
+<li><a href="#o-que-sao">O que são cookies</a></li>
+<li><a href="#lista">Cookies que usamos</a></li>
+<li><a href="#rastreamento">Sem rastreamento</a></li>
+<li><a href="#controle">Como controlar</a></li>
+{% endblock %}
+{% block doc %}
+<p class="eyebrow">Versão {{ config['PRIVACY_VERSION'] }}</p>
+<h1>Política de Cookies</h1>
+<section id="o-que-sao">
+  <h2>1. O que são cookies</h2>
+  <p>Cookies são pequenos arquivos guardados pelo navegador para lembrar informações entre uma página e outra, como o fato de você estar conectado.</p>
+</section>
+<section id="lista">
+  <h2>2. Cookies que usamos</h2>
+  <p>Todos os cookies abaixo são <strong>estritamente necessários</strong> para o funcionamento do site e por isso não dependem de consentimento.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Cookie</th><th scope="col">Para que serve</th><th scope="col">Duração</th></tr></thead>
+    <tbody>
+      <tr><td><code>session</code></td><td>Mantém você conectado e guarda a sacola de compras. É assinado, marcado como <code>HttpOnly</code> e <code>SameSite=Lax</code>.</td><td>Até fechar o navegador ou sair da conta</td></tr>
+      <tr><td>Token CSRF (dentro de <code>session</code>)</td><td>Protege formulários contra envios forjados por outros sites.</td><td>Mesma da sessão</td></tr>
+      {% if config.get('GOOGLE_LOGIN_ENABLED') %}<tr><td>Estado do login Google (dentro de <code>session</code>)</td><td>Valida a volta do Google durante o login, evitando ataques de redirecionamento.</td><td>Alguns minutos, durante o login</td></tr>{% endif %}
+    </tbody>
+  </table></div>
+</section>
+<section id="rastreamento">
+  <h2>3. Sem rastreamento</h2>
+  <p>Não usamos cookies de publicidade, de análise de audiência nem pixels de redes sociais. As fontes e os ícones do site são servidos pelo próprio servidor.{% if mapas_configurados %} Mapas incorporados do Google aparecem apenas quando você pede para vê-los e seguem a política do Google.{% endif %}</p>
+</section>
+<section id="controle">
+  <h2>4. Como controlar</h2>
+  <p>Você pode apagar os cookies nas configurações do navegador. Sem o cookie de sessão não é possível entrar na conta nem manter itens na sacola.</p>
+</section>
+{% endblock %}

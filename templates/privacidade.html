@@ -1,0 +1,88 @@
+{% extends '_legal_base.html' %}
+{% block title %}Política de Privacidade{% endblock %}
+{% block toc %}
+<li><a href="#controlador">Quem é o controlador</a></li>
+<li><a href="#dados">Dados que coletamos</a></li>
+<li><a href="#finalidades">Finalidades e bases legais</a></li>
+<li><a href="#compartilhamento">Compartilhamento</a></li>
+<li><a href="#retencao">Retenção</a></li>
+<li><a href="#direitos">Seus direitos (LGPD)</a></li>
+<li><a href="#seguranca">Segurança</a></li>
+<li><a href="#contato">Canal de contato</a></li>
+{% endblock %}
+{% block doc %}
+{%- set ni = 'não informado' -%}
+<p class="eyebrow">Versão {{ config['PRIVACY_VERSION'] }}</p>
+<h1>Política de Privacidade</h1>
+<p class="legal-notice">{{ icon('triangle-alert', 'icon-sm') }}<span>Documento-base do projeto acadêmico. Deve ser revisado por assessoria jurídica e completado com os dados oficiais da entidade antes de uso em produção.</span></p>
+
+<section id="controlador">
+  <h2>1. Quem é o controlador</h2>
+  <dl class="legal-facts">
+    <div><dt>Controlador</dt><dd>Biblioteca Aberta</dd></div>
+    <div><dt>CNPJ</dt><dd>{{ config['BUSINESS_CNPJ'] or ni }}</dd></div>
+    <div><dt>Endereço</dt><dd>{{ config['BUSINESS_ADDRESS'] or ni }}</dd></div>
+    <div><dt>Telefone</dt><dd>{{ config['BUSINESS_PHONE'] or ni }}</dd></div>
+    <div><dt>E-mail</dt><dd>{{ config['BUSINESS_EMAIL'] or ni }}</dd></div>
+  </dl>
+</section>
+
+<section id="dados">
+  <h2>2. Dados que coletamos</h2>
+  <ul>
+    <li><strong>Cadastro:</strong> nome, e-mail, senha (guardada apenas como hash), foto de perfil opcional e, se você vincular, o identificador da conta Google.</li>
+    <li><strong>Pedidos:</strong> nome completo, CPF, e-mail, telefone, endereço de entrega ou unidade de retirada, itens, valores e status.</li>
+    <li><strong>Conta:</strong> endereços salvos (até três), favoritos, lista de espera, avaliações, preferências de aviso e doações enviadas.</li>
+    <li><strong>Registros técnicos:</strong> cookies estritamente necessários (veja a <a href="{{ url_for('main.cookies') }}">Política de Cookies</a>).</li>
+  </ul>
+  <p>Fotos de perfil são reprocessadas no servidor e têm metadados (como localização GPS) removidos. Não coletamos dados de cartão: o pagamento é demonstrativo.</p>
+</section>
+
+<section id="finalidades">
+  <h2>3. Finalidades e bases legais</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Finalidade</th><th scope="col">Dados</th><th scope="col">Base legal (LGPD, art. 7º)</th></tr></thead>
+    <tbody>
+      <tr><td>Criar e manter a conta</td><td>Cadastro</td><td>Execução de contrato (V) e consentimento (I)</td></tr>
+      <tr><td>Processar, entregar e registrar pedidos</td><td>Pedidos, endereços</td><td>Execução de contrato (V)</td></tr>
+      <tr><td>Emissão de documentos e obrigações fiscais</td><td>Nome, CPF, valores</td><td>Cumprimento de obrigação legal (II)</td></tr>
+      <tr><td>Avisos de prazo, retirada e estoque</td><td>E-mail, pedidos</td><td>Legítimo interesse (IX), com opção de desligar</td></tr>
+      <tr><td>Segurança e prevenção a fraudes</td><td>Registros técnicos</td><td>Legítimo interesse (IX)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="compartilhamento">
+  <h2>4. Compartilhamento</h2>
+  <p>Não vendemos nem compartilhamos dados pessoais para publicidade. O único compartilhamento com terceiros é:</p>
+  <ul>
+    <li><strong>Google Maps (Geocoding){% if not maps_ativo %} — atualmente desativado{% endif %}:</strong> quando ativo, o CEP e o endereço digitados no checkout ou no perfil são enviados pelo nosso servidor ao Google para localizar o ponto no mapa. Nenhum dado de identificação (nome, CPF, e-mail) é enviado.</li>
+    <li><strong>ViaCEP:</strong> apenas o CEP é consultado para preencher o endereço.</li>
+    <li><strong>Login com Google</strong> (opcional): o Google informa nome, e-mail verificado e identificador quando você escolhe entrar dessa forma.</li>
+  </ul>
+</section>
+
+<section id="retencao">
+  <h2>5. Retenção</h2>
+  <ul>
+    <li>Dados da conta: enquanto a conta existir.</li>
+    <li>Pedidos: pelo prazo exigido pela legislação fiscal (em geral, 5 anos); após a exclusão da conta, ficam anonimizados.</li>
+    <li>Cache de localização: coordenadas por CEP/endereço, sem vínculo com a pessoa.</li>
+  </ul>
+</section>
+
+<section id="direitos">
+  <h2>6. Seus direitos (LGPD, art. 18)</h2>
+  <p>Você pode solicitar confirmação e acesso aos dados, correção, anonimização, portabilidade, informação sobre compartilhamentos, revogação do consentimento e eliminação. Pelo perfil você já consegue: editar nome, telefone, e-mail e senha; remover foto, endereços, favoritos e avaliações; desligar avisos; e excluir a conta.</p>
+</section>
+
+<section id="seguranca">
+  <h2>7. Segurança</h2>
+  <p>Senhas são armazenadas com hash, formulários são protegidos contra CSRF, cookies de sessão são <code>HttpOnly</code> e páginas com dados pessoais não são guardadas em cache. Chaves de API ficam apenas no servidor.</p>
+</section>
+
+<section id="contato">
+  <h2>8. Canal de contato</h2>
+  <p>Para exercer seus direitos ou tirar dúvidas, fale com o encarregado pelo e-mail {% if config['BUSINESS_EMAIL'] %}<a href="mailto:{{ config['BUSINESS_EMAIL'] }}?subject=LGPD">{{ config['BUSINESS_EMAIL'] }}</a>{% else %}{{ ni }}{% endif %} ou pelo telefone {{ config['BUSINESS_PHONE'] or ni }}. Respondemos em até 15 dias.</p>
+</section>
+{% endblock %}

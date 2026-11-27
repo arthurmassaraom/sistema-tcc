@@ -1,0 +1,55 @@
+@media print {
+  .site-header,
+  .site-footer,
+  .admin-sidebar,
+  .admin-topbar,
+  .button,
+  .button-row,
+  form,
+  .no-print {
+    display: none!important;
+  }
+  body,
+  .admin-shell {
+    background: white!important;
+    color: #111;
+  }
+  .container,
+  .admin-content {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+  .panel,
+  .table-wrap,
+  .metric-card {
+    box-shadow: none;
+    border-color: #aaa;
+    break-inside: avoid;
+  }
+  a {
+    color: #111;
+    text-decoration: none;
+  }
+  table {
+    min-width: 0;
+  }
+  th,
+  td {
+    padding: 6px;
+    font-size: 9pt;
+  }
+}
+
+@media print {
+  .ui-drawer,
+  .ui-backdrop,
+  .toast-region,
+  .skip-link,
+  .header-nav,
+  .admin-nav,
+  .checkout-steps {
+    display: none !important;
+  }
+}

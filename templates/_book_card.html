@@ -1,0 +1,29 @@
+<article class="book-tile"><a class="book-tile-cover" href="{{ url_for('livros.detalhes', livro_id=livro.id) }}"
+        aria-label="Ver detalhes de {{ livro.titulo }}">{% if livro.capa_arquivo %}<img
+            src="{{ url_for('static', filename='images/' ~ livro.capa_arquivo) }}" alt="Capa de {{ livro.titulo }}"
+            loading="lazy">{% else %}<span class="cover-fallback"><strong>{{ livro.titulo }}</strong><small>{{
+                livro.autor }}</small></span>{% endif %}</a>
+    <div class="book-tile-info">
+        <p class="eyebrow">{{ livro.genero }} · {{ livro.ano or 'Acervo' }}</p>
+        <h3><a href="{{ url_for('livros.detalhes', livro_id=livro.id) }}">{{ livro.titulo }}</a></h3>
+        <p>{{ livro.autor }}</p>{% if livro.total_avaliacoes %}<span class="rating"><span class="stars">{{ '★' *
+                (livro.media_avaliacao|round|int) }}{{ '☆' * (5 - (livro.media_avaliacao|round|int)) }}</span> {{
+            '%.1f'|format(livro.media_avaliacao) }} <small>({{ livro.total_avaliacoes }})</small></span>{% else %}<span
+            class="rating rating-empty">Sem avaliações ainda</span>{% endif %}<div class="book-tags"><span
+                class="badge">{{ livro.modalidade }}</span><span class="badge badge-green">{{ livro.estoque }}
+                disponível(is)</span></div>
+    </div>
+    <div class="tile-actions">
+        <form method="post" action="{{ url_for('carrinho.adicionar') }}" class="stack"><input type="hidden"
+                name="livro_id" value="{{ livro.id }}"><input type="hidden" name="quantidade" value="1"><select
+                name="tipo" aria-label="Modalidade para {{ livro.titulo }}">{% if livro.modalidade in
+                ['Ambos','Aluguel'] %}<option value="aluguel">Alugar · R$ {{ '%.2f'|format(livro.preco_aluguel) }}
+                </option>{% endif %}{% if livro.modalidade in ['Venda','Ambos'] %}<option value="compra">Comprar · R$ {{
+                    '%.2f'|format(livro.preco_venda) }}</option>{% endif %}</select><select name="dias"
+                aria-label="Prazo do aluguel">
+                <option value="7">7 dias</option>
+                <option value="14" selected>14 dias</option>
+                <option value="30">30 dias</option>
+            </select><button class="button button-small" type="submit">Adicionar ao carrinho</button></form>
+    </div>
+</article>

@@ -1,0 +1,72 @@
+{% extends 'admin_base.html' %}
+{% block title %}{{ 'Editar livro' if livro else 'Novo livro' }}{% endblock %}
+{% block content %}
+{%- macro v(campo, padrao='') -%}{{ form.get(campo) if form else (livro[campo] if livro and livro[campo] is not none else padrao) }}{%- endmacro -%}
+<header class="admin-title">
+  <div>
+    <p class="eyebrow">Acervo</p>
+    <h1>{{ 'Editar obra' if livro else 'Cadastrar obra' }}</h1>
+  </div>
+  <a class="button button-light" href="{{ url_for('admin.livros') }}">{{ icon('arrow-left', 'icon-sm') }}Voltar ao acervo</a>
+</header>
+<form method="post" class="admin-form" enctype="multipart/form-data" novalidate data-validate>
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+  <section class="panel">
+    <h2>Identificação</h2>
+    <div class="form-grid">
+      <label>Título *<input name="titulo" required maxlength="200" value="{{ v('titulo') }}" placeholder="Título da obra"></label>
+      <label>Autor *<input name="autor" required maxlength="160" value="{{ v('autor') }}" placeholder="Nome do autor"></label>
+      <label>Editora<input name="editora" maxlength="120" value="{{ v('editora') }}" placeholder="Editora"></label>
+      <label>Ano<input name="ano" type="number" inputmode="numeric" min="1000" max="2100" value="{{ v('ano') }}" placeholder="2024"></label>
+      <label>ISBN<input name="isbn" maxlength="30" inputmode="numeric" value="{{ v('isbn') }}" placeholder="978-… (opcional)"><small class="hint">Aceita com ou sem hífens; a busca do site encontra das duas formas.</small></label>
+      <label>Gênero<input name="genero" maxlength="80" value="{{ v('genero', 'Geral') }}" placeholder="Romance, fantasia…"></label>
+      <label class="full-width">Categoria<input name="categoria" maxlength="100" value="{{ v('categoria', 'Geral') }}" placeholder="Literatura brasileira…"></label>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Disponibilidade e preços</h2>
+    <div class="form-grid">
+      <label>Modalidade
+        <select name="modalidade">
+          {% for m, rot in [('Ambos','Aluguel e venda'),('Venda','Somente venda'),('Aluguel','Somente aluguel')] %}
+          <option value="{{ m }}" {% if v('modalidade', 'Ambos') == m %}selected{% endif %}>{{ rot }}</option>{% endfor %}
+        </select>
+      </label>
+      <fieldset class="cover-field">
+        <legend>Capa do livro</legend>
+        <div class="cover-field-body">
+          <span class="cover-field-preview">
+            {% if livro and livro.capa_arquivo %}<img src="{{ url_for('static', filename='images/' ~ livro.capa_arquivo) }}" alt="Capa atual de {{ livro.titulo }}">{% else %}<span class="cover-field-empty">Sem capa</span>{% endif %}
+          </span>
+          <div>
+            <label>Trocar imagem<input type="file" name="capa" accept="image/jpeg,image/png,image/webp"></label>
+            <p class="hint">JPG, PNG ou WebP até 5 MB. A imagem é ajustada automaticamente ao formato de capa (2:3), recortando o excesso no centro.</p>
+          </div>
+        </div>
+      </fieldset>
+      <fieldset class="stock-fieldset">
+        <legend>Estoque por biblioteca</legend>
+        <p class="hint">O total do livro é a soma das bibliotecas. Deixe 0 onde não houver exemplares.</p>
+        {% for b in bibliotecas %}
+        <label class="stock-field">
+          <span>{{ b.nome }} <small>{{ b.cidade }}/{{ b.estado }}</small></span>
+          <input type="number" inputmode="numeric" name="estoque_{{ b.id }}" min="0" value="{{ form.get('estoque_' ~ b.id, estoques.get(b.id, 0)) }}">
+        </label>
+        {% else %}
+        <p class="alert alert-info">Cadastre uma biblioteca antes de definir o estoque.</p>
+        {% endfor %}
+      </fieldset>
+      <label>Preço de venda (R$)<input type="number" inputmode="decimal" name="preco_venda" min="0" step="0.01" value="{{ v('preco_venda', 0) }}"></label>
+      <label>Preço do aluguel para 14 dias (R$)<small>Para 7 ou 30 dias o valor é proporcional.</small><input type="number" inputmode="decimal" name="preco_aluguel" min="0" step="0.01" value="{{ v('preco_aluguel', 0) }}"></label>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Sinopse</h2>
+    <label>Texto exibido na página do livro<textarea name="resumo" rows="5" maxlength="2000" placeholder="Resumo ou sinopse da obra">{{ v('resumo') }}</textarea></label>
+  </section>
+  <div class="admin-form-actions">
+    <button class="button button-large" type="submit">{{ icon('check', 'icon-sm') }}Salvar livro</button>
+    <a class="button button-ghost" href="{{ url_for('admin.livros') }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

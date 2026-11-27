@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }}{% endblock %}
+{% block page_css %}<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/legal.css') }}">{% endblock %}
+{% block content %}
+<section class="error-page" aria-labelledby="erro-titulo">
+  <div class="error-art" aria-hidden="true">
+    <span class="error-code">{{ codigo }}</span>
+    <svg viewBox="0 0 200 120"><rect x="20" y="30" width="26" height="80" rx="3"/><rect x="52" y="18" width="26" height="92" rx="3"/><rect x="86" y="40" width="26" height="70" rx="3" transform="rotate(-14 99 75)"/><rect x="128" y="26" width="26" height="84" rx="3"/><path d="M8 112h184"/></svg>
+  </div>
+  <div class="error-copy">
+    <p class="eyebrow">{{ icon('triangle-alert' if codigo >= 500 else 'lock' if codigo == 403 else 'clock' if sessao_expirada else 'search-x', 'icon-sm') }}Erro {{ codigo }}</p>
+    <h1 id="erro-titulo">{{ titulo }}</h1>
+    <p>{{ texto }}</p>
+    <div class="button-row">
+      {% if sessao_expirada %}
+      <a class="button" href="{{ request.referrer if request.referrer and request.referrer.startswith(request.host_url) else url_for('main.home') }}">{{ icon('refresh-cw') }}Voltar e tentar de novo</a>
+      {% elif codigo >= 500 %}
+      <a class="button" href="{{ request.path }}">{{ icon('refresh-cw') }}Tentar de novo</a>
+      {% else %}
+      <a class="button" href="{{ url_for('livros.catalogo') }}">{{ icon('book-open') }}Explorar o acervo</a>
+      {% endif %}
+      <a class="button button-light" href="{{ url_for('main.home') }}">{{ icon('house') }}Ir para o início</a>
+    </div>
+    {% if codigo == 404 %}
+    <form class="error-search" role="search" action="{{ url_for('livros.catalogo') }}" method="get">
+      <label for="erro-busca">Procurando um livro?</label>
+      <div><input id="erro-busca" name="q" type="search" placeholder="Título, autor ou ISBN"><button class="button button-accent" type="submit">Buscar</button></div>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
